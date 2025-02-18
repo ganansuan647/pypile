@@ -3,6 +3,7 @@ import yaml
 from pypile.parsers.yaml_parser import YamlParser
 from pypile.parsers.json_parser import JsonParser
 from pypile.parsers.text_parser import TextParser
+from pypile.result_renderer import ResultRenderer
 
 class ConfigParser:
     def __init__(self):
@@ -37,3 +38,6 @@ class ConfigParser:
     def validate_data(self):
         # Implement validation logic here
         pass
+
+    def get_result_renderer(self, analysis_results):
+        return ResultRenderer(analysis_results)
