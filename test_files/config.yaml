@@ -1,0 +1,14 @@
+pile_groups:
+  - type: non-virtual 
+    coordinates: [10.2, 5.6]
+    properties:
+      diameter: 1.2
+      segments:
+        - {depth: 5, soil_type: clay}
+        - {depth: 10, soil_type: sand}
+  - type: virtual
+    stiffness: [1e6, 1e6, 2e6, 0, 0, 0]
+    
+load_cases:
+  - node: [0, 0, 0]
+    forces: [0, 1000, 0, 0, 0, 0]

@@ -189,3 +189,11 @@ config_parser.parse('config.yaml')
 data = config_parser.get_data()
 config_parser.validate_data()
 ```
+
+## 运行测试
+
+要运行测试用例，请执行以下命令：
+
+```bash
+python -m unittest discover tests
+```
