@@ -190,6 +190,111 @@ data = config_parser.get_data()
 config_parser.validate_data()
 ```
 
+## PileBuilder 模块
+
+`PileBuilder` 模块用于根据配置信息构建桩基模型对象。该模块包含以下类和方法：
+
+- `PileBuilder` 类：构建桩基模型
+  - `__init__(config_data)` 方法：初始化 `PileBuilder` 对象
+  - `initialize_pile_properties()` 方法：初始化桩基属性
+  - `validate_pile_properties()` 方法：验证桩基属性
+  - `build_pile_segments()` 方法：构建桩基段
+
+示例用法：
+
+```python
+from pypile.pile_builder import PileBuilder
+
+config_data = {
+    "pile_groups": [
+        {
+            "type": "non-virtual",
+            "coordinates": [10.2, 5.6],
+            "properties": {
+                "diameter": 1.2,
+                "segments": [
+                    {"depth": 5, "soil_type": "clay"},
+                    {"depth": 10, "soil_type": "sand"}
+                ]
+            }
+        }
+    ],
+    "load_cases": [
+        {
+            "node": [0, 0, 0],
+            "forces": [0, 1000, 0, 0, 0, 0]
+        }
+    ]
+}
+
+pile_builder = PileBuilder(config_data)
+pile_builder.initialize_pile_properties()
+pile_builder.validate_pile_properties()
+pile_builder.build_pile_segments()
+```
+
+## NonlinearSolver 模块
+
+`NonlinearSolver` 模块用于实现迭代求解桩基变形、应力和内力等响应。该模块包含以下类和方法：
+
+- `NonlinearSolver` 类：非线性求解器
+  - `__init__(pile_model)` 方法：初始化 `NonlinearSolver` 对象
+  - `assemble_stiffness_matrix()` 方法：组装系统刚度矩阵
+  - `solve_control_equations()` 方法：求解控制方程
+  - `apply_boundary_conditions()` 方法：施加边界条件
+
+示例用法：
+
+```python
+from pypile.nonlinear_solver import NonlinearSolver
+
+pile_model = {
+    "nodes": [0, 1, 2],
+    "elements": [
+        {"nodes": [0, 1], "length": 5, "area": 1.2, "youngs_modulus": 2e6},
+        {"nodes": [1, 2], "length": 10, "area": 1.2, "youngs_modulus": 2e6}
+    ],
+    "boundary_conditions": [
+        {"node": 0, "value": 0},
+        {"node": 2, "value": 0}
+    ]
+}
+
+solver = NonlinearSolver(pile_model)
+solver.assemble_stiffness_matrix()
+solver.apply_boundary_conditions()
+solver.solve_control_equations()
+```
+
+## ResultRenderer 模块
+
+`ResultRenderer` 模块用于将分析结果可视化为二维平面图和交互式三维场景。该模块包含以下类和方法：
+
+- `ResultRenderer` 类：结果渲染器
+  - `__init__(analysis_results)` 方法：初始化 `ResultRenderer` 对象
+  - `render_deformation_cloud_map()` 方法：渲染变形云图
+  - `render_section_view(section_plane)` 方法：渲染剖面视图
+  - `render_vector_field()` 方法：渲染矢量场
+
+示例用法：
+
+```python
+from pypile.result_renderer import ResultRenderer
+
+analysis_results = {
+    "dimensions": (10, 10, 10),
+    "origin": (0, 0, 0),
+    "spacing": (1, 1, 1),
+    "deformation": np.random.rand(10, 10, 10),
+    "pressure": np.random.rand(10, 10, 10)
+}
+
+renderer = ResultRenderer(analysis_results)
+renderer.render_deformation_cloud_map()
+renderer.render_section_view((5, 5))
+renderer.render_vector_field()
+```
+
 ## 运行测试
 
 要运行测试用例，请执行以下命令：
