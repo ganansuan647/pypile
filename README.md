@@ -20,6 +20,12 @@ PyPile需要Python 3.8或更高版本。可通过pip安装:
 pip install pypile
 ```
 
+或者使用 `uv` 进行依赖管理:
+
+```bash
+uv sync
+```
+
 ## 快速开始
 
 运行内置的示例分析:
@@ -29,6 +35,28 @@ pypile examples/bridge_case.yml
 ```
 
 该命令将执行标准的桥梁分析流程,对结果进行交互式三维渲染,并输出内力报告。
+
+## 使用uv进行依赖管理
+
+1. 安装 `uv`:
+    ```bash
+    pip install uv
+    ```
+
+2. 同步依赖:
+    ```bash
+    uv sync
+    ```
+
+3. 安装新依赖:
+    ```bash
+    uv add <package_name>
+    ```
+
+4. 移除依赖:
+    ```bash
+    uv remove <package_name>
+    ```
 
 ## 文档
 
