@@ -17,18 +17,18 @@ class PileBuilder:
             self.pile_model["load_cases"].append(self._initialize_load_case(load_case))
 
     def _initialize_pile_group(self, pile_group):
-        # Initialize a single pile group
+        # Initialize a single pile group using get to avoid KeyError
         return {
-            "type": pile_group["type"],
-            "coordinates": pile_group["coordinates"],
-            "properties": pile_group["properties"]
+            "type": pile_group.get("type"),
+            "coordinates": pile_group.get("coordinates"),
+            "properties": pile_group.get("properties", {})
         }
 
     def _initialize_load_case(self, load_case):
-        # Initialize a single load case
+        # Initialize a single load case using get to avoid KeyError
         return {
-            "node": load_case["node"],
-            "forces": load_case["forces"]
+            "node": load_case.get("node"),
+            "forces": load_case.get("forces")
         }
 
     def validate_pile_properties(self):
@@ -50,11 +50,17 @@ class PileBuilder:
                 pile_group["segments"].append(self._build_segment(segment))
 
     def _build_segment(self, segment):
-        # Build a single pile segment
+        # Build a single pile segment using get to avoid KeyError
         return {
-            "depth": segment["depth"],
-            "soil_type": segment["soil_type"]
+            "depth": segment.get("depth"),
+            "soil_type": segment.get("soil_type")
         }
+
+    def export_pile_model(self, file_path):
+        # Export the pile model to a JSON file
+        import json
+        with open(file_path, 'w') as file:
+            json.dump(self.pile_model, file, indent=4)
 
     def get_result_renderer(self, analysis_results):
         return ResultRenderer(analysis_results)

@@ -34,9 +34,16 @@ class NonlinearSolver:
         self.stiffness_matrix[node2, node1] += element_stiffness[1, 0]
         self.stiffness_matrix[node2, node2] += element_stiffness[1, 1]
 
+    def solve_equations_only(self):
+        """只进行方程求解，不包含渲染"""
+        self.apply_boundary_conditions()
+        self.displacement_vector = spsolve(self.stiffness_matrix.tocsc(), self.load_vector)
+        print("计算结果:", self.displacement_vector)
+
     def solve_control_equations(self):
-        # Solve the control equations to find the displacement vector
-        self.displacement_vector = spsolve(self.stiffness_matrix, self.load_vector)
+        """完整的求解过程，包含渲染"""
+        self.apply_boundary_conditions()
+        self.solve_equations_only()
         self.pass_results_to_renderer()
 
     def apply_boundary_conditions(self):
@@ -47,6 +54,15 @@ class NonlinearSolver:
             self.stiffness_matrix[node, :] = 0
             self.stiffness_matrix[node, node] = 1
             self.load_vector[node] = value
+
+    def export_results(self, file_path):
+        # Export the results to a JSON file
+        import json
+        results = {
+            "displacement_vector": self.displacement_vector.tolist()
+        }
+        with open(file_path, 'w') as file:
+            json.dump(results, file, indent=4)
 
     def get_result_renderer(self, analysis_results):
         return ResultRenderer(analysis_results)
@@ -60,6 +76,9 @@ class NonlinearSolver:
             "pressure": np.random.rand(10, 10, 10)
         }
         renderer = self.get_result_renderer(analysis_results)
-        renderer.render_deformation_cloud_map()
+        try:
+            renderer.render_deformation_cloud_map()
+        except ImportError as err:
+            print(f"Rendering skipped due to import error: {err}")
         renderer.render_section_view((5, 5))
         renderer.render_vector_field()

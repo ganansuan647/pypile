@@ -1,3 +1,5 @@
+import __init__ # Required to import the module
+
 import unittest
 from pypile.config_parser import ConfigParser
 

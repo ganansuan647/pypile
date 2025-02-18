@@ -1,3 +1,5 @@
+import __init__ # Required to import the module
+
 import unittest
 import numpy as np
 from pypile.result_renderer import ResultRenderer
