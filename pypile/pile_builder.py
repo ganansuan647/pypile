@@ -1,3 +1,5 @@
+from pypile.result_renderer import ResultRenderer
+
 class PileBuilder:
     def __init__(self, config_data):
         self.config_data = config_data
@@ -53,3 +55,6 @@ class PileBuilder:
             "depth": segment["depth"],
             "soil_type": segment["soil_type"]
         }
+
+    def get_result_renderer(self, analysis_results):
+        return ResultRenderer(analysis_results)

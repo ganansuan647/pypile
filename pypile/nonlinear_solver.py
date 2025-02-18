@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
+from pypile.result_renderer import ResultRenderer
 
 class NonlinearSolver:
     def __init__(self, pile_model):
@@ -36,6 +37,7 @@ class NonlinearSolver:
     def solve_control_equations(self):
         # Solve the control equations to find the displacement vector
         self.displacement_vector = spsolve(self.stiffness_matrix, self.load_vector)
+        self.pass_results_to_renderer()
 
     def apply_boundary_conditions(self):
         # Apply boundary conditions using Lagrange multipliers
@@ -45,3 +47,19 @@ class NonlinearSolver:
             self.stiffness_matrix[node, :] = 0
             self.stiffness_matrix[node, node] = 1
             self.load_vector[node] = value
+
+    def get_result_renderer(self, analysis_results):
+        return ResultRenderer(analysis_results)
+
+    def pass_results_to_renderer(self):
+        analysis_results = {
+            "dimensions": (10, 10, 10),
+            "origin": (0, 0, 0),
+            "spacing": (1, 1, 1),
+            "deformation": np.random.rand(10, 10, 10),
+            "pressure": np.random.rand(10, 10, 10)
+        }
+        renderer = self.get_result_renderer(analysis_results)
+        renderer.render_deformation_cloud_map()
+        renderer.render_section_view((5, 5))
+        renderer.render_vector_field()
