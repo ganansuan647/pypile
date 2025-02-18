@@ -160,3 +160,32 @@ PyPile采用[语义化版本](https://semver.org/lang/zh-CN/)进行版本管理,
 ```
 
 版本更新日志记录在`CHANGELOG.md`文件中。
+
+## ConfigParser 模块
+
+`ConfigParser` 模块用于解析配置文件，支持 YAML、JSON 和文本格式。该模块包含以下类和方法：
+
+- `ConfigParser` 类：协调配置文件解析任务
+  - `parse(file_path)` 方法：根据文件格式调用相应的解析方法
+  - `get_data()` 方法：返回解析后的数据
+  - `validate_data()` 方法：验证解析后的数据
+
+- `YamlParser` 类：处理 YAML 文件解析
+  - `parse(file_path)` 方法：解析 YAML 文件并返回结构化数据
+
+- `JsonParser` 类：处理 JSON 文件解析
+  - `parse(file_path)` 方法：解析 JSON 文件并返回结构化数据
+
+- `TextParser` 类：处理文本文件解析
+  - `parse(file_path)` 方法：解析文本文件并返回结构化数据
+
+示例用法：
+
+```python
+from pypile.config_parser import ConfigParser
+
+config_parser = ConfigParser()
+config_parser.parse('config.yaml')
+data = config_parser.get_data()
+config_parser.validate_data()
+```
