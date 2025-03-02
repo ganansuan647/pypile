@@ -35,13 +35,15 @@ def analyze_pile_foundation(input_file):
     sim_pile_data = SimulativePileData()
     element_stiffness = ElementStiffnessData()
     
-    # Parse the base filename
+    # Parse the base filename and directory
     base_file = os.path.basename(input_file)
     base_name = os.path.splitext(base_file)[0]
+    # 获取输入文件所在的目录，确保输出文件保存到同一目录
+    input_dir = os.path.dirname(os.path.abspath(input_file))
     
     # Generate output filenames
-    output_file = f_name(base_name, '.out')
-    position_file = f_name(base_name, '.pos')
+    output_file = os.path.join(input_dir, f_name(base_name, '.out'))
+    position_file = os.path.join(input_dir, f_name(base_name, '.pos'))
     
     # Read input data
     jctr, ino, pnum, snum, force, zfr, zbl = read_input_file(

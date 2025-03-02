@@ -26,5 +26,5 @@ Utility modules for the BCAD_PILE package.
 Visualization modules for the BCAD_PILE package.
 """
 
-from .plotter import plot_results
-from .interactive_view import create_interactive_visualization
+from .visualization.plotter import plot_results
+from .visualization.interactive_view import create_interactive_visualization

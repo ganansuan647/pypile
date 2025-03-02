@@ -237,7 +237,7 @@ def init2(im, pnum, pile_data, lines, line_index):
     
     line_index += 1
     
-    # Read buried segment data
+    # Read buried segment data - first get the number of layers
     parts = lines[line_index].strip().split()
     nbl1 = int(parts[0])
     hbl1 = np.zeros(nbl1)
@@ -246,13 +246,74 @@ def init2(im, pnum, pile_data, lines, line_index):
     pfi1 = np.zeros(nbl1)
     nsg1 = np.zeros(nbl1, dtype=int)
     
-    for i in range(nbl1):
-        idx = 1 + i * 5
-        hbl1[i] = float(parts[idx])
-        dob1[i] = float(parts[idx + 1])
-        pmt1[i] = float(parts[idx + 2])
-        pfi1[i] = float(parts[idx + 3])
-        nsg1[i] = int(parts[idx + 4])
+    # 支持三种格式:
+    # 1. 单行格式（传统格式）: 13 13.4 2.0 5000 18.0 14 7.1 2.0 3000 13.7 8 ...
+    # 2. 多行格式（每层一行）: 13
+    #                        13.4 2.0 5000 18.0 14
+    #                        7.1 2.0 3000 13.7 8
+    #                        ...
+    # 3. 折中格式（第一层与层数在同一行）: 13 13.4 2.0 5000 18.0 14
+    #                                   7.1 2.0 3000 13.7 8
+    #                                   ...
+    
+    # 情况1：如果只有一个数字（土层数量），那么接下来的每一行是一个土层的数据（多行格式）
+    if len(parts) == 1:
+        for i in range(nbl1):
+            line_index += 1  # 移动到下一行
+            if line_index >= len(lines):
+                raise ValueError(f"Unexpected end of file while reading buried segment {i+1}")
+                
+            layer_parts = lines[line_index].strip().split()
+            if len(layer_parts) < 5:
+                raise ValueError(f"Not enough parameters for buried segment {i+1}: {layer_parts}")
+                
+            hbl1[i] = float(layer_parts[0])
+            dob1[i] = float(layer_parts[1])
+            pmt1[i] = float(layer_parts[2])
+            pfi1[i] = float(layer_parts[3])
+            nsg1[i] = int(layer_parts[4])
+    
+    # 情况2：如果有足够的参数表示所有土层（单行格式）
+    elif len(parts) >= 1 + nbl1 * 5:
+        # 原有的单行格式处理
+        for i in range(nbl1):
+            idx = 1 + i * 5
+            if idx + 4 >= len(parts):
+                raise ValueError(f"Not enough parameters for buried segment {i+1}: {parts}")
+                
+            hbl1[i] = float(parts[idx])
+            dob1[i] = float(parts[idx + 1])
+            pmt1[i] = float(parts[idx + 2])
+            pfi1[i] = float(parts[idx + 3])
+            nsg1[i] = int(parts[idx + 4])
+    
+    # 情况3：如果有6个参数（层数+第一层5个参数），那么是折中格式
+    elif len(parts) == 6:
+        # 处理第一层（与层数在同一行）
+        hbl1[0] = float(parts[1])
+        dob1[0] = float(parts[2])
+        pmt1[0] = float(parts[3])
+        pfi1[0] = float(parts[4])
+        nsg1[0] = int(parts[5])
+        
+        # 处理剩余的层（每层一行）
+        for i in range(1, nbl1):
+            line_index += 1  # 移动到下一行
+            if line_index >= len(lines):
+                raise ValueError(f"Unexpected end of file while reading buried segment {i+1}")
+                
+            layer_parts = lines[line_index].strip().split()
+            if len(layer_parts) < 5:
+                raise ValueError(f"Not enough parameters for buried segment {i+1}: {layer_parts}")
+                
+            hbl1[i] = float(layer_parts[0])
+            dob1[i] = float(layer_parts[1])
+            pmt1[i] = float(layer_parts[2])
+            pfi1[i] = float(layer_parts[3])
+            nsg1[i] = int(layer_parts[4])
+    
+    else:
+        raise ValueError(f"Invalid format for buried segment data: {parts}")
     
     line_index += 1
     
