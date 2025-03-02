@@ -45,7 +45,10 @@ def analyze_example2():
     """分析例2并生成可视化结果"""
     
     # 创建输入文件
-    create_example2_dat_file("example2.dat")
+    import os
+    examples_dir = os.path.dirname(os.path.abspath(__file__))
+    dat_file = os.path.join(examples_dir, "example2.dat")
+    create_example2_dat_file(dat_file)
     
     # 画桩基平面图
     plt.figure(figsize=(10, 10))
@@ -75,7 +78,8 @@ def analyze_example2():
     # 添加外力标注
     plt.text(0, 0, 'Nz=960t\nMy=-450t·m', ha='center', va='center', bbox=dict(facecolor='white', alpha=0.7))
     
-    plt.savefig("example2_plan.png")
+    plan_png_file = os.path.join(examples_dir, "example2_plan.png")
+    plt.savefig(plan_png_file)
     plt.close()
     
     # 画桩基剖面图
@@ -107,7 +111,8 @@ def analyze_example2():
     plt.ylabel('深度 (m)')
     plt.title('例2: 低桩承台剖面图')
     
-    plt.savefig("example2_section.png")
+    section_png_file = os.path.join(examples_dir, "example2_section.png")
+    plt.savefig(section_png_file)
     plt.close()
     
     # 分析结果 (从例2中提取的数值)
