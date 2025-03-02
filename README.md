@@ -10,7 +10,7 @@
 
 ## 📋 项目概述
 
-BCAD_PILE 是一个用于桥梁基础结构空间静力分析的 Python 包，由 Fortran 代码转换而来。该工具可以执行桩基础在不同荷载条件下的行为分析，包括位移、内力以及土-结构相互作用。特别适用于桥梁结构在地震及多灾害(如冲刷、液化等)条件下的基础分析。
+pypile 是一个用于桥梁基础结构空间静力分析的 Python 包，其源代码(BCAD_PILE)由 Fortran 代码转换而来。该工具可以执行桩基础在不同荷载条件下的行为分析，包括位移、内力以及土-结构相互作用。特别适用于桥梁结构在地震及多灾害(如冲刷、液化等)条件下的基础分析。
 
 ## ✨ 主要功能
 
@@ -26,14 +26,14 @@ BCAD_PILE 是一个用于桥梁基础结构空间静力分析的 Python 包，�
 ### 使用 pip 安装
 
 ```bash
-pip install bcad_pile
+pip install pypile
 ```
 
 ### 从源代码安装
 
 ```bash
-git clone https://github.com/你的用户名/bcad_pile.git
-cd bcad_pile
+git clone https://github.com/ganansuan647/pypile.git
+cd pypile
 pip install -e .
 ```
 
@@ -114,7 +114,7 @@ end
 ## 🏗️ 项目结构
 
 ```
-bcad_pile/
+pypile/
 ├── bcad_pile/
 │   ├── __init__.py
 │   ├── main.py
