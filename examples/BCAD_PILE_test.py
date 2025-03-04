@@ -237,5 +237,172 @@ def run_test():
     
     print("测试完成。生成了桩布置图和刚度矩阵可视化图。")
 
+def test_calculate_deformation_factors():
+    """
+    测试 calculate_deformation_factors 函数
+    """
+    from bcad_pile.core.stiffness import calculate_deformation_factors
+    from bcad_pile.core.data import PileData
+
+    # 创建测试数据
+    pnum = 2
+    zfr = np.array([5.0, 5.0])
+    zbl = np.array([10.0, 10.0])
+    pile_data = PileData(max_piles=2)
+    pile_data.pxy = np.array([[0.0, 0.0], [10.0, 0.0]])
+    pile_data.dob = np.array([[1.0, 1.0], [1.0, 1.0]])
+    pile_data.pmt = np.array([[1000.0, 1000.0], [1000.0, 1000.0]])
+    pile_data.peh = np.array([30000.0, 30000.0])
+    pile_data.pke = np.array([1.0, 1.0])
+    pile_data.ksh = np.array([0, 0])
+    pile_data.kctr = np.array([0, 0])
+    pile_data.nbl = np.array([2, 2])
+
+    # 调用函数
+    btx, bty = calculate_deformation_factors(pnum, zfr, zbl, pile_data)
+
+    # 验证结果
+    assert btx.shape == (2, 15)
+    assert bty.shape == (2, 15)
+    assert np.allclose(btx[0, :2], [0.1, 0.1], atol=1e-2)
+    assert np.allclose(bty[0, :2], [0.1, 0.1], atol=1e-2)
+
+def test_calculate_axial_stiffness():
+    """
+    测试 calculate_axial_stiffness 函数
+    """
+    from bcad_pile.core.stiffness import calculate_axial_stiffness
+    from bcad_pile.core.data import PileData
+
+    # 创建测试数据
+    pnum = 2
+    zfr = np.array([5.0, 5.0])
+    zbl = np.array([10.0, 10.0])
+    ao = np.array([1.0, 1.0])
+    pile_data = PileData(max_piles=2)
+    pile_data.dof = np.array([[1.0, 1.0], [1.0, 1.0]])
+    pile_data.hfr = np.array([[5.0, 5.0], [5.0, 5.0]])
+    pile_data.nfr = np.array([2, 2])
+    pile_data.dob = np.array([[1.0, 1.0], [1.0, 1.0]])
+    pile_data.hbl = np.array([[5.0, 5.0], [5.0, 5.0]])
+    pile_data.nbl = np.array([2, 2])
+    pile_data.peh = np.array([30000.0, 30000.0])
+    pile_data.pmb = np.array([1000.0, 1000.0])
+    pile_data.ksh = np.array([0, 0])
+    pile_data.kctr = np.array([0, 0])
+    pile_data.ksu = np.array([1, 1])
+
+    # 调用函数
+    rzz = calculate_axial_stiffness(pnum, zfr, zbl, ao, pile_data)
+
+    # 验证结果
+    assert rzz.shape == (2,)
+    assert np.allclose(rzz, [1.0, 1.0], atol=1e-2)
+
+def test_calculate_lateral_stiffness():
+    """
+    测试 calculate_lateral_stiffness 函数
+    """
+    from bcad_pile.core.stiffness import calculate_lateral_stiffness
+    from bcad_pile.core.data import PileData, ElementStiffnessData
+
+    # 创建测试数据
+    pnum = 2
+    rzz = np.array([1.0, 1.0])
+    btx = np.array([[0.1, 0.1], [0.1, 0.1]])
+    bty = np.array([[0.1, 0.1], [0.1, 0.1]])
+    pile_data = PileData(max_piles=2)
+    pile_data.dof = np.array([[1.0, 1.0], [1.0, 1.0]])
+    pile_data.hfr = np.array([[5.0, 5.0], [5.0, 5.0]])
+    pile_data.nfr = np.array([2, 2])
+    pile_data.dob = np.array([[1.0, 1.0], [1.0, 1.0]])
+    pile_data.hbl = np.array([[5.0, 5.0], [5.0, 5.0]])
+    pile_data.nbl = np.array([2, 2])
+    pile_data.peh = np.array([30000.0, 30000.0])
+    pile_data.pmb = np.array([1000.0, 1000.0])
+    pile_data.ksh = np.array([0, 0])
+    pile_data.kctr = np.array([0, 0])
+    pile_data.ksu = np.array([1, 1])
+    element_stiffness = ElementStiffnessData(max_elements=2)
+
+    # 调用函数
+    calculate_lateral_stiffness(pnum, rzz, btx, bty, pile_data, element_stiffness)
+
+    # 验证结果
+    assert element_stiffness.esp.shape == (2, 6)
+    assert np.allclose(element_stiffness.esp[0, :], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0], atol=1e-2)
+    assert np.allclose(element_stiffness.esp[1, :], [0.0, 1.0, 0.0, 0.0, 0.0, 0.0], atol=1e-2)
+
+def test_calculate_displacements():
+    """
+    测试 calculate_displacements 函数
+    """
+    from bcad_pile.core.displacement import calculate_displacements
+    from bcad_pile.core.data import PileData, SimulativePileData, ElementStiffnessData
+
+    # 创建测试数据
+    jctr = 1
+    ino = 0
+    pnum = 2
+    snum = 0
+    pile_data = PileData(max_piles=2)
+    sim_pile_data = SimulativePileData(max_piles=2)
+    element_stiffness = ElementStiffnessData(max_elements=2)
+    force = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    zfr = np.array([5.0, 5.0])
+    zbl = np.array([10.0, 10.0])
+
+    # 调用函数
+    duk, so = calculate_displacements(jctr, ino, pnum, snum, pile_data, sim_pile_data, element_stiffness, force, zfr, zbl)
+
+    # 验证结果
+    assert duk.shape == (2, 6)
+    assert so.shape == (6, 6)
+    assert np.allclose(duk[0, :], [1.0, 1.0, 1.0, 1.0, 1.0, 1.0], atol=1e-2)
+    assert np.allclose(so[0, :], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0], atol=1e-2)
+
+def test_calculate_pile_forces():
+    """
+    测试 calculate_pile_forces 函数
+    """
+    from bcad_pile.core.forces import calculate_pile_forces
+    from bcad_pile.core.data import PileData, ElementStiffnessData
+
+    # 创建测试数据
+    pnum = 2
+    btx = np.array([[0.1, 0.1], [0.1, 0.1]])
+    bty = np.array([[0.1, 0.1], [0.1, 0.1]])
+    zbl = np.array([10.0, 10.0])
+    duk = np.array([[1.0, 1.0, 1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]])
+    pile_data = PileData(max_piles=2)
+    pile_data.dof = np.array([[1.0, 1.0], [1.0, 1.0]])
+    pile_data.hfr = np.array([[5.0, 5.0], [5.0, 5.0]])
+    pile_data.nfr = np.array([2, 2])
+    pile_data.dob = np.array([[1.0, 1.0], [1.0, 1.0]])
+    pile_data.hbl = np.array([[5.0, 5.0], [5.0, 5.0]])
+    pile_data.nbl = np.array([2, 2])
+    pile_data.peh = np.array([30000.0, 30000.0])
+    pile_data.pmb = np.array([1000.0, 1000.0])
+    pile_data.ksh = np.array([0, 0])
+    pile_data.kctr = np.array([0, 0])
+    pile_data.ksu = np.array([1, 1])
+    element_stiffness = ElementStiffnessData(max_elements=2)
+
+    # 调用函数
+    pile_results = calculate_pile_forces(pnum, btx, bty, zbl, duk, pile_data, element_stiffness)
+
+    # 验证结果
+    assert len(pile_results) == 2
+    assert pile_results[0]['pile_number'] == 1
+    assert pile_results[1]['pile_number'] == 2
+    assert np.allclose(pile_results[0]['top_displacement'], [1.0, 1.0, 1.0, 1.0, 1.0, 1.0], atol=1e-2)
+    assert np.allclose(pile_results[1]['top_displacement'], [1.0, 1.0, 1.0, 1.0, 1.0, 1.0], atol=1e-2)
+
 if __name__ == "__main__":
     run_test()
+    test_calculate_deformation_factors()
+    test_calculate_axial_stiffness()
+    test_calculate_lateral_stiffness()
+    test_calculate_displacements()
+    test_calculate_pile_forces()
+    print("所有测试通过。")
