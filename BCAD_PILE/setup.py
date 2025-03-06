@@ -16,11 +16,11 @@ setup(
         "numpy>=1.20.0",
         "matplotlib>=3.3.0",
         "numba>=0.53.0",
-        "plotly>=5.0.0"
+        "plotly>=5.0.0",
     ],
     entry_points={
-        'console_scripts': [
-            'bcad_pile=bcad_pile.main:main',
+        "console_scripts": [
+            "bcad_pile=bcad_pile.main:main",
         ],
     },
     classifiers=[

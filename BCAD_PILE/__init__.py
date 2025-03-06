@@ -6,7 +6,7 @@ This package provides tools to analyze pile foundations of bridge substructures.
 Converted from the original Fortran BCAD_PILE program.
 """
 
-__version__ = '0.1.0'
+__version__ = "0.1.0"
 
 
 # core/__init__.py
