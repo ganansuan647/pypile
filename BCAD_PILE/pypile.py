@@ -7,6 +7,7 @@ BCAD_PILE Python版本
 
 import numpy as np
 import math
+__version__ = "0.1.0"
 
 class BCADPile:
     def __init__(self):
@@ -44,53 +45,133 @@ class BCADPile:
 
     def head1(self):
         """显示程序头信息"""
-        print("\n\n\n\n\n")
-        print("\n     Welcome to use the BCAD_PILE program !!\n")
-        print("     This program is aimed to execute spatial statical analysis of pile")
-        print("foundations of bridge substructures. If you have any questions about")
-        print("this program, please do not hesitate to write to :\n")
-        print("                                                  CAD Reseach Group")
-        print("                                                  Dept.of Bridge Engr.")
-        print("                                                  Tongji University")
-        print("                                                  1239 Sipin Road ")
-        print("                                                  Shanghai 200092")
-        print("                                                  P.R.of China\n")
+        print(f"""
+
+Welcome to use the BCAD_PILE program !!
+
+This program is aimed to execute spatial statical analysis of pile
+foundations of bridge substructures. If you have any questions about
+this program, please do not hesitate to write to :
+
+                                                  CAD Research Group
+                                                  Dept. of Bridge Engr.
+                                                  Tongji University
+                                                  1239 Sipin Road 
+                                                  Shanghai 200092
+                                                  P.R. of China
+""")
 
     def head2(self):
         """输出到文件的程序头信息"""
-        self.output_file.write("\n\n\n\n\n\n")
-        self.output_file.write("       ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
-        self.output_file.write("       +                                                                                          +\n")
-        self.output_file.write("       +    BBBBBB       CCCC        A       DDDDD         PPPPPP     III     L         EEEEEEE    +\n")
-        self.output_file.write("       +    B     B     C    C      A A      D    D        P     P     I      L         E          +\n")
-        self.output_file.write("       +    B     B    C           A   A     D     D       P     P     I      L         E          +\n")
-        self.output_file.write("       +    BBBBBB     C          A     A    D     D       PPPPPP      I      L         EEEEEEE    +\n")
-        self.output_file.write("       +    B     B    C          AAAAAAA    D     D       P           I      L         E          +\n")
-        self.output_file.write("       +    B     B     C    C    A     A    D    D        P           I      L     L   E          +\n")
-        self.output_file.write("       +    BBBBBB       CCCC     A     A    DDDDD   ===== P          III      LLLLL    EEEEEEE    +\n")
-        self.output_file.write("       +                                                                                          +\n")
-        self.output_file.write("       +                        Copyright 1990, Version 1.10  modfied by Zhiq Wang                  +\n")
-        self.output_file.write("       ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
-        self.output_file.write("\n               Welcome to use the BCAD_PILE program !!\n")
-        self.output_file.write("               This program is aimed to execute spatial statical analysis of pile")
-        self.output_file.write("foundations of bridge substructures. If you have any questions about")
-        self.output_file.write("this program, please do not hesitate to write to :\n")
-        self.output_file.write("                                                                    CAD Reseach Group\n")
-        self.output_file.write("                                                                    Dept.of Bridge Engr.\n")
-        self.output_file.write("                                                                    Tongji University\n")
-        self.output_file.write("                                                                    1239 Sipin Road \n")
-        self.output_file.write("                                                                    Shanghai 200092\n")
-        self.output_file.write("                                                                    P.R.of China\n")
+        self.output_file.write(f"""
+
+
+       ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+       +                                                                                           +
+       +    BBBBBB       CCCC        A       DDDDD         PPPPPP     III     L         EEEEEEE    +
+       +    B     B     C    C      A A      D    D        P     P     I      L         E          +
+       +    B     B    C           A   A     D     D       P     P     I      L         E          +
+       +    BBBBBB     C          A     A    D     D       PPPPPP      I      L         EEEEEEE    +
+       +    B     B    C          AAAAAAA    D     D       P           I      L         E          +
+       +    B     B     C    C    A     A    D    D        P           I      L         E          +
+       +    BBBBBB       CCCC     A     A    DDDDD         P          III     LLLLLL    EEEEEEE    +
+       +                                                                                           +
+       +                        Copyright 2025, Version {__version__}  modified by Lingyun Gou                  +
+       ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+        Welcome to use the BCAD_PILE program !!
+        This program is aimed to execute spatial statical analysis of pile
+        foundations of bridge substructures. If you have any questions about
+        this program, please do not hesitate to write to :
+
+                                                                    CAD Research Group
+                                                                    Dept. of Bridge Engr.
+                                                                    Tongji University
+                                                                    1239 Sipin Road 
+                                                                    Shanghai 200092
+                                                                    P.R. of China
+""")
 
     def f_name(self, filename, ext):
         """组合文件名和扩展名"""
         base_name = filename.strip()
         return base_name + ext
 
-    def r_data(self, jctr, ino, force):
-        """读取初始结构数据"""
+    def r_data(self, jctr: int, ino: int, force: np.ndarray) -> tuple[int, int, int, int, np.ndarray, np.ndarray, np.ndarray]:
+        """读取初始结构数据
+        
+        Args:
+            jctr: 控制参数
+            ino: 输出控制参数
+            force: 外部荷载数组
+            
+        Returns:
+            tuple: (jctr, ino, pnum, snum, force, zfr, zbl)
+        """
+        # 使用上下文管理器读取块
+        def read_block_until(end_marker: str = "end;") -> list[str]:
+            """读取数据块直到遇到结束标记
+            
+            Args:
+                end_marker: 结束标记字符串
+                
+            Returns:
+                list: 读取的行列表
+            """
+            lines = []
+            while True:
+                line = self.input_file.readline().strip()
+                if not line or line.lower() == end_marker.lower():
+                    break
+                lines.append(line)
+            return lines
+            
+        def parse_float_list(line_str: str) -> list[float]:
+            """解析包含浮点数的字符串行
+            
+            Args:
+                line_str: 包含浮点数的字符串
+                
+            Returns:
+                list: 浮点数列表
+            """
+            return [float(x) for x in line_str.split()]
+            
+        def parse_int_list(line_str: str) -> list[int]:
+            """解析包含整数的字符串行
+            
+            Args:
+                line_str: 包含整数的字符串
+                
+            Returns:
+                list: 整数列表
+            """
+            return [int(x) for x in line_str.split()]
+            
+        def read_multi_line_data(count: int, parser_func: callable, 
+                                 items_per_row: int = None) -> list:
+            """读取可能跨多行的数据
+            
+            Args:
+                count: 需要读取的项目数量
+                parser_func: 解析函数
+                items_per_row: 每行的项目数量
+                
+            Returns:
+                list: 解析后的数据列表
+            """
+            data = []
+            while len(data) < count:
+                line = self.input_file.readline().strip()
+                if not line:
+                    continue
+                data.extend(parser_func(line))
+                
+            # 确保只返回所需数量的数据
+            return data[:count]
+        
         # 读取[CONTROL]块
-        title = self.input_file.readline().strip()
+        title = self.input_file.readline().strip()  # 读取[CONTROL]标题
         jctr = int(self.input_file.readline().strip())
         
         if jctr == 1:
@@ -99,13 +180,8 @@ class BCADPile:
             act = np.zeros((10, 6), dtype=float)
             
             for i in range(nact):
-                line = self.input_file.readline().strip().split()
-                axy[i, 0] = float(line[0])
-                axy[i, 1] = float(line[1])
-                
-                line = self.input_file.readline().strip().split()
-                for j in range(6):
-                    act[i, j] = float(line[j])
+                axy[i] = parse_float_list(self.input_file.readline().strip())
+                act[i] = parse_float_list(self.input_file.readline().strip())
             
             # 调用函数合并外部荷载
             force = self.init6(nact, axy, act)
@@ -116,61 +192,45 @@ class BCADPile:
         if jctr == 3:
             ino = int(self.input_file.readline().strip())
         
+        # 读取块结束标记
         tag = self.input_file.readline().strip()
         
         # 读取[ARRANGE]块
-        title = self.input_file.readline().strip()
-        line = self.input_file.readline().strip().split()
-        pnum = int(line[0])
-        snum = int(line[1])
+        title = self.input_file.readline().strip()  # 读取[ARRANGE]标题
+        
+        # 读取桩数量信息
+        pnum, snum = parse_int_list(self.input_file.readline().strip())
         
         # 读取非模拟桩的位置坐标
-        coords = []
+        coords_data = read_multi_line_data(pnum * 2, parse_float_list)
         for k in range(pnum):
-            line = self.input_file.readline().strip().split()
-            if len(line) < 2:
-                # 如果这行不足两个数，可能是坐标分布在多行
-                while len(line) < 2:
-                    more_data = self.input_file.readline().strip().split()
-                    line.extend(more_data)
-            
-            self.pxy[k, 0] = float(line[0])
-            self.pxy[k, 1] = float(line[1])
+            self.pxy[k, 0] = coords_data[k*2]
+            self.pxy[k, 1] = coords_data[k*2+1]
         
         # 读取模拟桩的位置坐标(如果有)
         if snum > 0:
+            sim_coords_data = read_multi_line_data(snum * 2, parse_float_list)
             for k in range(snum):
-                line = self.input_file.readline().strip().split()
-                if len(line) < 2:
-                    # 同样处理可能的多行数据
-                    while len(line) < 2:
-                        more_data = self.input_file.readline().strip().split()
-                        line.extend(more_data)
-                
-                self.sxy[k, 0] = float(line[0])
-                self.sxy[k, 1] = float(line[1])
+                self.sxy[k, 0] = sim_coords_data[k*2]
+                self.sxy[k, 1] = sim_coords_data[k*2+1]
         
+        # 读取块结束标记
         tag = self.input_file.readline().strip()
         
         # 读取[NO_SIMU]块
-        title = self.input_file.readline().strip()
+        title = self.input_file.readline().strip()  # 读取[NO_SIMU]标题
         
-        # 可能的多行数据处理
-        kctr_data = []
-        while len(kctr_data) < pnum:
-            line = self.input_file.readline().strip().split()
-            kctr_data.extend(line)
-        
+        # 读取控制信息
+        kctr_data = read_multi_line_data(pnum, parse_int_list)
         for k in range(pnum):
-            self.kctr[k] = int(kctr_data[k])
+            self.kctr[k] = kctr_data[k]
         
         idf = self.init1(pnum, self.kctr)
         
         # 读取<0>段信息
         stag = self.input_file.readline().strip()
         if stag != "<0>":
-            print(f"Error: Expected <0>, got {stag}")
-            exit(1)
+            raise ValueError(f"格式错误: 期望 <0>, 得到 {stag}")
         
         # 初始化<0>段信息
         self.init2(0, pnum)
@@ -179,11 +239,16 @@ class BCADPile:
         for ik in range(1, idf):
             line = self.input_file.readline().strip()
             # 提取<>中的数字
+            match = None
             if '<' in line and '>' in line:
-                im = int(line.split('<')[1].split('>')[0])
+                try:
+                    match = int(line.split('<')[1].split('>')[0])
+                except (ValueError, IndexError):
+                    raise ValueError(f"格式错误: 无法解析 {line} 中的数字")
             else:
-                print(f"Error: Expected <number>, got {line}")
-                exit(1)
+                raise ValueError(f"格式错误: 期望 <number>, 得到 {line}")
+            
+            im = match
             
             if im > 0:
                 # 读取指定控制信息的桩
@@ -196,27 +261,24 @@ class BCADPile:
                 vnew = []
                 
                 for ia in range(jj):
-                    line = self.input_file.readline().strip().split()
-                    sig.append(line[0])
-                    jnew.append(int(line[1]))
-                    vnew.append(float(line[2]))
+                    parts = self.input_file.readline().strip().split()
+                    sig.append(parts[0])
+                    jnew.append(int(parts[1]))
+                    vnew.append(float(parts[2]))
                 
                 # 修改指定控制信息的桩的参数
                 self.init4(im, jj, pnum, sig, jnew, vnew)
         
+        # 读取块结束标记
         tag = self.input_file.readline().strip()
         
         # 读取[SIMUPILE]块
-        title = self.input_file.readline().strip()
+        title = self.input_file.readline().strip()  # 读取[SIMUPILE]标题
         if snum > 0:
-            # 可能的多行数据处理
-            ksctr_data = []
-            while len(ksctr_data) < snum:
-                line = self.input_file.readline().strip().split()
-                ksctr_data.extend(line)
-            
+            # 读取模拟桩控制信息
+            ksctr_data = read_multi_line_data(snum, parse_int_list)
             for ks in range(snum):
-                self.ksctr[ks] = int(ksctr_data[ks])
+                self.ksctr[ks] = ksctr_data[ks]
             
             idf = self.init1(snum, self.ksctr)
             is_val = pnum * 6
@@ -224,14 +286,19 @@ class BCADPile:
             for ik in range(idf):
                 line = self.input_file.readline().strip()
                 # 提取<>中的数字
+                match = None
                 if '<' in line and '>' in line:
-                    im = int(line.split('<')[1].split('>')[0])
+                    try:
+                        match = int(line.split('<')[1].split('>')[0])
+                    except (ValueError, IndexError):
+                        raise ValueError(f"格式错误: 无法解析 {line} 中的数字")
                 else:
-                    print(f"Error: Expected <number>, got {line}")
-                    exit(1)
+                    raise ValueError(f"格式错误: 期望 <number>, 得到 {line}")
                 
+                im = match
                 self.init5(im, is_val, snum)
         
+        # 读取块结束标记
         tag = self.input_file.readline().strip()
         
         # 计算桩地上和地下段长度
@@ -239,14 +306,8 @@ class BCADPile:
         zbl = np.zeros(pnum, dtype=float)
         
         for k in range(pnum):
-            zfr[k] = 0.0
-            zbl[k] = 0.0
-            
-            for ia in range(int(self.nfr[k])):
-                zfr[k] += self.hfr[k, ia]
-            
-            for ia in range(int(self.nbl[k])):
-                zbl[k] += self.hbl[k, ia]
+            zfr[k] = np.sum(self.hfr[k, :int(self.nfr[k])])
+            zbl[k] = np.sum(self.hbl[k, :int(self.nbl[k])])
         
         return jctr, ino, pnum, snum, force, zfr, zbl
 
@@ -370,8 +431,7 @@ class BCADPile:
                 nim.append(k)
         
         if not nim:
-            print(f"Error: <{im}>")
-            exit(1)
+            raise ValueError(f"格式错误: <{im}>")
         
         # 根据标识符修改对应的参数
         for ia in range(jj):
@@ -424,8 +484,7 @@ class BCADPile:
                 for k in nim:
                     self.pke[k] = vnew[ia]
             else:
-                print(f"Error: <{im}>")
-                exit(1)
+                raise ValueError(f"格式错误: <{im}>")
 
     def init5(self, im, is_val, snum):
         """读取模拟桩信息"""
