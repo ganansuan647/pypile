@@ -7,7 +7,6 @@ Fortran compilation utilities for PyPile tests
 
 import subprocess
 import sys
-import os
 from pathlib import Path
 import importlib.util
 

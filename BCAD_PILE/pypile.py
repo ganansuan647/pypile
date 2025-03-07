@@ -7,7 +7,6 @@ BCAD_PILE Python版本
 
 import numpy as np
 import math
-import os
 
 class BCADPile:
     def __init__(self):
