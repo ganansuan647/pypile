@@ -13,7 +13,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from bcad_pile.models.control_model import create_control_model, ControlModel
+from bcad_pile.models.control_model import parse_control_text, ControlModel
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def control_model_inputs() -> dict:
         """,
         
         "jctr3_keywords": """
-        [CONTRAL] 
+        [CONTROL] 
         JCTR = 3
         INO = 5
         END;
@@ -103,7 +103,7 @@ class TestControlModel:
     
     def test_jctr_1_with_keywords(self, control_model_inputs: dict):
         """测试使用关键词的JCTR=1情况"""
-        model = create_control_model(control_model_inputs["jctr1_keywords"])
+        model = parse_control_text(control_model_inputs["jctr1_keywords"])
         assert model.control.JCTR == 1
         assert model.control.NACT == 2
         assert len(model.control.force_points) == 2
@@ -132,25 +132,25 @@ class TestControlModel:
     
     def test_jctr_2(self, control_model_inputs: dict):
         """测试JCTR=2情况"""
-        model = create_control_model(control_model_inputs["jctr2"])
+        model = parse_control_text(control_model_inputs["jctr2"])
         assert model.control.JCTR == 2
     
     def test_jctr_3_with_keywords(self, control_model_inputs: dict):
         """测试使用关键词的JCTR=3情况"""
-        model = create_control_model(control_model_inputs["jctr3_keywords"])
+        model = parse_control_text(control_model_inputs["jctr3_keywords"])
         assert model.control.JCTR == 3
         assert model.control.INO == 5
     
     def test_jctr_implicit_with_keywords(self, control_model_inputs: dict):
         """测试无显式JCTR字段但使用其他关键词的情况"""
-        model = create_control_model(control_model_inputs["jctr_implicit"])
+        model = parse_control_text(control_model_inputs["jctr_implicit"])
         assert model.control.JCTR == 1
         assert model.control.NACT == 2
         assert len(model.control.force_points) == 2
     
     def test_sequential_parsing_jctr_1(self, control_model_inputs: dict):
         """测试顺序解析JCTR=1情况（不使用NACT关键词）"""
-        model = create_control_model(control_model_inputs["sequential_jctr1"])
+        model = parse_control_text(control_model_inputs["sequential_jctr1"])
         assert model.control.JCTR == 1
         assert model.control.NACT == 2
         assert len(model.control.force_points) == 2
@@ -168,30 +168,30 @@ class TestControlModel:
     
     def test_sequential_parsing_jctr_3(self, control_model_inputs: dict):
         """测试顺序解析JCTR=3情况（不使用INO关键词）"""
-        model = create_control_model(control_model_inputs["sequential_jctr3"])
+        model = parse_control_text(control_model_inputs["sequential_jctr3"])
         assert model.control.JCTR == 3
         assert model.control.INO == 5
     
     def test_invalid_jctr(self, control_model_inputs: dict):
         """测试无效的JCTR值"""
         with pytest.raises(ValueError, match="JCTR 必须是 1, 2 或 3"):
-            create_control_model(control_model_inputs["invalid_jctr"])
+            parse_control_text(control_model_inputs["invalid_jctr"])
     
     def test_missing_control_tag(self, control_model_inputs: dict):
         """测试缺少[CONTROL]标签的情况"""
         # 期望成功处理缺少标签的情况，自动添加[CONTROL]标签
-        model = create_control_model(control_model_inputs["missing_control_tag"])
+        model = parse_control_text(control_model_inputs["missing_control_tag"])
         assert model.control.JCTR == 2
     
     def test_jctr_1_missing_nact(self, control_model_inputs: dict):
         """测试JCTR=1但缺少NACT的情况"""
         with pytest.raises(ValueError, match="JCTR=1时必须提供NACT值"):
-            create_control_model(control_model_inputs["jctr1_missing_nact"])
+            parse_control_text(control_model_inputs["jctr1_missing_nact"])
     
     def test_jctr_3_missing_ino(self, control_model_inputs: dict):
         """测试JCTR=3但缺少INO的情况"""
         with pytest.raises(ValueError, match="JCTR=3时必须提供INO参数"):
-            create_control_model(control_model_inputs["jctr3_missing_ino"])
+            parse_control_text(control_model_inputs["jctr3_missing_ino"])
 
 
 if __name__ == "__main__":

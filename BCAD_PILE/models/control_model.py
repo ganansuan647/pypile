@@ -49,6 +49,20 @@ class ControlModel(BaseModel):
         if '[CONTRAL]' not in raw_input and '[CONTROL]' not in raw_input:
             raw_input = '[CONTROL]\n' + raw_input
         
+        if 'END' not in raw_input and 'end' not in raw_input:
+            raw_input += '\nEND;'
+            
+        # 将多个\n替换为\n
+        raw_input = re.sub(r'\n+', '\n', raw_input)
+        
+        # 解析[CONTROL]或[CONTRAL] 到 END; 或end;之间的内容作为input_text
+        control_pattern = r'\[(CONTROL|CONTRAL)\].*?(?:END;|end;)'
+        match = re.search(control_pattern, raw_input, re.DOTALL)
+        if match:
+            input_text = match.group(0)
+        else:
+            raise ValueError("无法找到有效的控制块")
+        
         # 提取JCTR值
         match = re.search(r'JCTR\s*=\s*(\d+)', raw_input) or re.search(r'\[CONTRAL\]\s+(\d+)', raw_input) or re.search(r'\[CONTROL\]\s+(\d+)', raw_input)
         if not match:
@@ -153,7 +167,7 @@ class ControlModel(BaseModel):
         return data
 
 # 工厂函数：根据输入文本创建适当的模型实例
-def create_control_model(input_text: str) -> ControlModel:
+def parse_control_text(input_text: str) -> ControlModel:
     return ControlModel(input_text=input_text)
 
 
@@ -212,31 +226,31 @@ if __name__ == "__main__":
     """
 
     try:
-        model1 = create_control_model(input_text1)
+        model1 = parse_control_text(input_text1)
         print("JCTR=1 模型验证通过:", model1.control)
         print(f"作用点数量: {model1.control.NACT}")
         print(f"第一个作用点: {model1.control.force_points[0]}")
         
-        model2 = create_control_model(input_text2)
+        model2 = parse_control_text(input_text2)
         print("JCTR=2 模型验证通过:", model2.control)
         
-        model3 = create_control_model(input_text3)
+        model3 = parse_control_text(input_text3)
         print("JCTR=3 模型验证通过:", model3.control)
         print(f"指定桩号: {model3.control.INO}")
         
-        model4 = create_control_model(input_text4)
+        model4 = parse_control_text(input_text4)
         print("无显式JCTR字段情况 模型验证通过:", model4.control)
         if hasattr(model4.control, 'NACT'):
             print(f"作用点数量: {model4.control.NACT}")
             print(f"第一个作用点: {model4.control.force_points[0]}")
         
-        model5 = create_control_model(input_text5)
+        model5 = parse_control_text(input_text5)
         print("顺序解析NACT情况 模型验证通过:", model5.control)
         if hasattr(model5.control, 'NACT'):
             print(f"作用点数量: {model5.control.NACT}")
             print(f"第一个作用点: {model5.control.force_points[0]}")
         
-        model6 = create_control_model(input_text6)
+        model6 = parse_control_text(input_text6)
         print("顺序解析INO情况 模型验证通过:", model6.control)
         if hasattr(model6.control, 'INO'):
             print(f"指定桩号: {model6.control.INO}")
