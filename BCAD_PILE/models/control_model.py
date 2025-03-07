@@ -45,6 +45,10 @@ class ControlModel(BaseModel):
         if not raw_input:
             raise ValueError("输入不能为空")
         
+        # 如果[CONTRAL] 或 [CONTROL]标签不存在,直接在最前面添加[CONTROL]
+        if '[CONTRAL]' not in raw_input and '[CONTROL]' not in raw_input:
+            raw_input = '[CONTROL]\n' + raw_input
+        
         # 提取JCTR值
         match = re.search(r'JCTR\s*=\s*(\d+)', raw_input) or re.search(r'\[CONTRAL\]\s+(\d+)', raw_input) or re.search(r'\[CONTROL\]\s+(\d+)', raw_input)
         if not match:

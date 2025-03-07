@@ -28,17 +28,20 @@ def control_model_inputs() -> dict:
         100.0 200.0 300.0 150.0 250.0 350.0
         15.7 25.9
         120.0 220.0 320.0 170.0 270.0 370.0
+        END;
         """,
         
         "jctr2": """
         [CONTRAL] 
         JCTR = 2
+        end;
         """,
         
         "jctr3_keywords": """
         [CONTRAL] 
         JCTR = 3
         INO = 5
+        END;
         """,
         
         "jctr_implicit": """
@@ -49,6 +52,7 @@ def control_model_inputs() -> dict:
         100.0 200.0 300.0 150.0 250.0 350.0
         15.7 25.9
         120.0 220.0 320.0 170.0 270.0 370.0
+        END;
         """,
         
         "sequential_jctr1": """
@@ -59,27 +63,37 @@ def control_model_inputs() -> dict:
         100.0 200.0 300.0 150.0 250.0 350.0
         15.7 25.9
         120.0 220.0 320.0 170.0 270.0 370.0
+        END;
         """,
         
         "sequential_jctr3": """
         [CONTROL] 
         3
         5
+        END;
         """,
         
         "invalid_jctr": """
         [CONTRAL] 
         JCTR = 4
+        END;
+        """,
+        
+        "missing_control_tag": """
+        2
+        END;
         """,
         
         "jctr1_missing_nact": """
         [CONTROL]
         JCTR = 1
+        END;
         """,
         
         "jctr3_missing_ino": """
         [CONTROL]
         JCTR = 3
+        END;
         """
     }
 
@@ -163,10 +177,11 @@ class TestControlModel:
         with pytest.raises(ValueError, match="JCTR 必须是 1, 2 或 3"):
             create_control_model(control_model_inputs["invalid_jctr"])
     
-    # def test_missing_control_tag(self, control_model_inputs: dict):
-    #     """测试缺少[CONTROL]标签的情况"""
-    #     with pytest.raises(ValueError, match="无法解析JCTR值，未找到\[CONTROL\]或\[CONTRAL\]标签"):
-    #         create_control_model(control_model_inputs["missing_control_tag"])
+    def test_missing_control_tag(self, control_model_inputs: dict):
+        """测试缺少[CONTROL]标签的情况"""
+        # 期望成功处理缺少标签的情况，自动添加[CONTROL]标签
+        model = create_control_model(control_model_inputs["missing_control_tag"])
+        assert model.control.JCTR == 2
     
     def test_jctr_1_missing_nact(self, control_model_inputs: dict):
         """测试JCTR=1但缺少NACT的情况"""
