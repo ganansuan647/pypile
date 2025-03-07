@@ -17,6 +17,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# 导入Fortran编译工具
+from tests.fortran_utils import compile_fortran_module
+
 
 class TestRLTFR(unittest.TestCase):
     """RLTFR函数的测试类"""
@@ -27,28 +30,20 @@ class TestRLTFR(unittest.TestCase):
         在所有测试前运行一次，编译Fortran代码
         """
         # 设置F2PY输出文件的路径
-        fortran_file = (
-            project_root / "tests" / "test_bcad_pile" / "test_modules" / "rltfr.f"
-        )
+        cls.fortran_dir = project_root / "tests" / "test_bcad_pile" / "test_modules"
+        fortran_file = cls.fortran_dir / "rltfr.f"
 
-        # 使用F2PY编译Fortran代码为Python模块
+        # 使用共用的工具函数编译Fortran代码为Python模块
         try:
-            subprocess.run(
-                [
-                    "python",
-                    "-m",
-                    "numpy.f2py",
-                    "-c",
-                    str(fortran_file),
-                    "-m",
-                    "rltfr_fortran",
-                ],
-                cwd=str(fortran_file.parent),
-                check=True,
+            cls.rltfr_fortran = compile_fortran_module(
+                fortran_file_path=fortran_file,
+                module_name="rltfr_fortran",
+                working_dir=cls.fortran_dir
             )
             print("RLTFR函数Fortran代码编译成功")
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             print(f"编译RLTFR函数Fortran代码时出错: {e}")
+            cls.rltfr_fortran = None
 
     def test_frlmtx_single_segment(self) -> None:
         """
@@ -297,11 +292,8 @@ class TestRLTFR(unittest.TestCase):
                 cx[i, j] = kf1[i2, j]
                 dx[i, j] = kf1[i2, j2] + kf2[i, j]
 
-        # 计算DX的逆矩阵，使用py_sinver函数
-        x, je = self.py_sinver(dx, 2)
-        if je != 0:
-            # 如果矩阵奇异，返回零矩阵
-            return np.zeros((4, 4), dtype=np.float32)
+        # 计算DX的逆矩阵
+        x, _ = self.py_sinver(dx, 2)
 
         # 计算中间矩阵
         y = np.zeros((2, 2), dtype=np.float32)
@@ -354,7 +346,7 @@ class TestRLTFR(unittest.TestCase):
                 i2 = i + 2
                 j2 = j + 2
                 kf[i2, j2] = (
-                    kf2[i2, j2] - kf5[i, j2] * kf2[j, i2] + kf4[i, j] + kf3[i, j]
+                    kf2[i2, j2] - kf5[i, j] * kf2[j, i2] + kf4[i, j] + kf3[i, j]
                 )
 
         return kf

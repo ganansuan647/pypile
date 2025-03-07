@@ -18,6 +18,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# 导入Fortran编译工具
+from tests.fortran_utils import compile_fortran_module
+
 
 class TestCNDTN(unittest.TestCase):
     """CNDTN函数的测试类"""
@@ -31,78 +34,28 @@ class TestCNDTN(unittest.TestCase):
         cls.fortran_dir = project_root / "tests" / "test_bcad_pile" / "test_modules"
         fortran_file = cls.fortran_dir / "cndtn.f"
 
-        # 使用F2PY编译Fortran代码为Python模块
+        # 使用共用的工具函数编译Fortran代码为Python模块
         try:
-            subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "numpy.f2py",
-                    "-c",
-                    str(fortran_file),
-                    "-m",
-                    "cndtn_fortran",
-                ],
-                cwd=str(cls.fortran_dir),
-                check=True,
+            cls.cndtn_fortran = compile_fortran_module(
+                fortran_file_path=fortran_file,
+                module_name="cndtn_fortran",
+                working_dir=cls.fortran_dir
             )
             print("CNDTN函数Fortran代码编译成功")
 
-            # 动态导入编译后的模块
-            # 先查找编译生成的.pyd文件（Windows）或.so文件（Linux/Mac）
-            pyd_pattern = str(cls.fortran_dir / "cndtn_fortran*.pyd")
-            so_pattern = str(cls.fortran_dir / "cndtn_fortran*.so")
-
-            module_files = glob.glob(pyd_pattern)
-            if not module_files:
-                module_files = glob.glob(so_pattern)
-
-            if module_files:
-                # 使用找到的第一个模块文件
-                module_path = module_files[0]
-                print(f"找到编译后的模块: {module_path}")
-
-                # 添加模块目录到sys.path以便直接导入
-                sys.path.insert(0, str(cls.fortran_dir))
-                try:
-                    # 直接导入模块
-                    import cndtn_fortran
-
-                    cls.fortran_module = cndtn_fortran
-                    print("成功导入cndtn_fortran模块")
-                except ImportError as e:
-                    print(f"直接导入失败: {e}，尝试使用importlib")
-                    # 如果直接导入失败，使用importlib
-                    import importlib.util
-
-                    spec = importlib.util.spec_from_file_location(
-                        "cndtn_fortran", module_path
-                    )
-                    if spec and spec.loader:
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
-                        cls.fortran_module = module
-                        print("通过importlib成功导入模块")
-                    else:
-                        print("无法通过importlib导入模块")
-                        cls.fortran_module = None
-            else:
-                print("无法找到编译后的Fortran模块文件")
-                cls.fortran_module = None
-
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             print(f"编译CNDTN函数Fortran代码时出错: {e}")
-            cls.fortran_module = None
+            cls.cndtn_fortran = None
 
         # 打印导入的模块信息，帮助调试
-        if cls.fortran_module:
-            print(f"模块属性: {dir(cls.fortran_module)}")
+        if cls.cndtn_fortran:
+            print(f"模块属性: {dir(cls.cndtn_fortran)}")
 
     def test_cndtn_ksu_1(self) -> None:
         """
         测试CNDTN函数在KSU=1(钻孔灌注桩)情况下的行为
         """
-        if not hasattr(self, "fortran_module") or not self.fortran_module:
+        if not hasattr(self, "cndtn_fortran") or not self.cndtn_fortran:
             self.skipTest("Fortran模块未成功加载")
 
         # 创建测试数据
@@ -139,7 +92,7 @@ class TestCNDTN(unittest.TestCase):
 
         try:
             # 调用Fortran函数
-            self.fortran_module.cndtn(ksu, kx, ky, rzz, ke_fortran)
+            self.cndtn_fortran.cndtn(ksu, kx, ky, rzz, ke_fortran)
 
             # 比较结果
             print("\n比较Python和Fortran实现的结果 (KSU=1):")
@@ -159,7 +112,7 @@ class TestCNDTN(unittest.TestCase):
         """
         测试CNDTN函数在KSU=2(打入摩擦桩)情况下的行为
         """
-        if not hasattr(self, "fortran_module") or not self.fortran_module:
+        if not hasattr(self, "cndtn_fortran") or not self.cndtn_fortran:
             self.skipTest("Fortran模块未成功加载")
 
         # 创建测试数据
@@ -196,7 +149,7 @@ class TestCNDTN(unittest.TestCase):
 
         try:
             # 调用Fortran函数
-            self.fortran_module.cndtn(ksu, kx, ky, rzz, ke_fortran)
+            self.cndtn_fortran.cndtn(ksu, kx, ky, rzz, ke_fortran)
 
             # 比较结果
             print("\n比较Python和Fortran实现的结果 (KSU=2):")
@@ -216,7 +169,7 @@ class TestCNDTN(unittest.TestCase):
         """
         测试CNDTN函数在KSU=4(端承嵌固桩)情况下的行为
         """
-        if not hasattr(self, "fortran_module") or not self.fortran_module:
+        if not hasattr(self, "cndtn_fortran") or not self.cndtn_fortran:
             self.skipTest("Fortran模块未成功加载")
 
         # 创建测试数据
@@ -253,7 +206,7 @@ class TestCNDTN(unittest.TestCase):
 
         try:
             # 调用Fortran函数
-            self.fortran_module.cndtn(ksu, kx, ky, rzz, ke_fortran)
+            self.cndtn_fortran.cndtn(ksu, kx, ky, rzz, ke_fortran)
 
             # 比较结果
             print("\n比较Python和Fortran实现的结果 (KSU=4):")

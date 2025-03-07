@@ -17,6 +17,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# 导入Fortran编译工具
+from tests.fortran_utils import compile_fortran_module
+
 
 class TestKINF3(unittest.TestCase):
     """KINF3函数的测试类"""
@@ -27,9 +30,8 @@ class TestKINF3(unittest.TestCase):
         在所有测试前运行一次，编译Fortran代码
         """
         # 设置Fortran源文件和F2PY输出文件的路径
-        fortran_file = (
-            project_root / "tests" / "test_bcad_pile" / "test_modules" / "kinf3.f"
-        )
+        cls.fortran_dir = project_root / "tests" / "test_bcad_pile" / "test_modules"
+        fortran_file = cls.fortran_dir / "kinf3.f"
 
         # 确保目标目录存在
         fortran_file.parent.mkdir(parents=True, exist_ok=True)
@@ -88,25 +90,8 @@ c*****************************************************
         with open(fortran_file, "w") as f:
             f.write(kinf3_code)
 
-        # 使用F2PY编译Fortran代码为Python模块
-        try:
-            subprocess.run(
-                [
-                    "python",
-                    "-m",
-                    "numpy.f2py",
-                    "-c",
-                    str(fortran_file),
-                    "-m",
-                    "kinf3_fortran",
-                ],
-                cwd=str(fortran_file.parent),
-                check=True,
-            )
-            print("Fortran代码编译成功")
-        except subprocess.CalledProcessError as e:
-            print(f"编译Fortran代码时出错: {e}")
-            raise
+        # 使用Fortran编译工具编译Fortran代码为Python模块
+        compile_fortran_module(fortran_file, "kinf3_fortran")
 
     def test_kinf3_single_pile(self) -> None:
         """

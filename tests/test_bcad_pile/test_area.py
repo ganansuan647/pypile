@@ -21,6 +21,9 @@ import glob
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# 导入Fortran编译工具
+from tests.fortran_utils import compile_fortran_module
+
 
 class TestAREA(unittest.TestCase):
     """AREA函数的测试类"""
@@ -34,70 +37,22 @@ class TestAREA(unittest.TestCase):
         cls.fortran_dir = project_root / "tests" / "test_bcad_pile" / "test_modules"
         fortran_file = cls.fortran_dir / "area.f"
 
-        # 使用F2PY编译Fortran代码为Python模块
+        # 使用共用的工具函数编译Fortran代码为Python模块
         try:
-            subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "numpy.f2py",
-                    "-c",
-                    str(fortran_file),
-                    "-m",
-                    "area_fortran",
-                ],
-                cwd=str(cls.fortran_dir),
-                check=True,
+            cls.area_fortran = compile_fortran_module(
+                fortran_file_path=fortran_file,
+                module_name="area_fortran",
+                working_dir=cls.fortran_dir
             )
             print("AREA函数Fortran代码编译成功")
 
-            # 动态导入编译后的模块
-            # 先查找编译生成的.pyd文件（Windows）或.so文件（Linux/Mac）
-            pyd_pattern = str(cls.fortran_dir / "area_fortran*.pyd")
-            so_pattern = str(cls.fortran_dir / "area_fortran*.so")
-
-            module_files = glob.glob(pyd_pattern)
-            if not module_files:
-                module_files = glob.glob(so_pattern)
-
-            if module_files:
-                # 使用找到的第一个模块文件
-                module_path = module_files[0]
-                print(f"找到编译后的模块: {module_path}")
-
-                # 添加模块目录到sys.path以便直接导入
-                sys.path.insert(0, str(cls.fortran_dir))
-                try:
-                    # 直接导入模块
-                    import area_fortran
-
-                    cls.fortran_module = area_fortran
-                    print("成功导入area_fortran模块")
-                except ImportError as e:
-                    print(f"直接导入失败: {e}，尝试使用importlib")
-                    # 如果直接导入失败，使用importlib
-                    spec = importlib.util.spec_from_file_location(
-                        "area_fortran", module_path
-                    )
-                    if spec and spec.loader:
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
-                        cls.fortran_module = module
-                        print("通过importlib成功导入模块")
-                    else:
-                        print("无法通过importlib导入模块")
-                        cls.fortran_module = None
-            else:
-                print("无法找到编译后的Fortran模块文件")
-                cls.fortran_module = None
-
         except subprocess.CalledProcessError as e:
             print(f"编译AREA函数Fortran代码时出错: {e}")
-            cls.fortran_module = None
+            cls.area_fortran = None
 
         # 打印导入的模块信息，帮助调试
-        if cls.fortran_module:
-            print(f"模块属性: {dir(cls.fortran_module)}")
+        if cls.area_fortran:
+            print(f"模块属性: {dir(cls.area_fortran)}")
 
     def test_area_simplified(self) -> None:
         """
@@ -119,7 +74,7 @@ class TestAREA(unittest.TestCase):
         """
         比较Fortran实现和Python实现的结果
         """
-        if not hasattr(self, "fortran_module") or not self.fortran_module:
+        if not hasattr(self, "area_fortran") or not self.area_fortran:
             self.skipTest("Fortran模块未成功加载")
 
         # 准备测试数据
@@ -180,27 +135,27 @@ class TestAREA(unittest.TestCase):
         pke = np.zeros(1000, dtype=np.float32)
 
         # 设置PINF共享块
-        if hasattr(self.fortran_module, "pinf"):
+        if hasattr(self.area_fortran, "pinf"):
             try:
                 # 尝试通过模块中的pinf属性访问COMMON块
-                self.fortran_module.pinf.pxy = pxy
-                self.fortran_module.pinf.kctr = kctr
-                self.fortran_module.pinf.ksh = ksh
-                self.fortran_module.pinf.ksu = ksu
-                self.fortran_module.pinf.agl = agl
-                self.fortran_module.pinf.nfr = nfr
-                self.fortran_module.pinf.hfr = hfr
-                self.fortran_module.pinf.dof = dof
-                self.fortran_module.pinf.nsf = nsf
-                self.fortran_module.pinf.nbl = nbl
-                self.fortran_module.pinf.hbl = hbl
-                self.fortran_module.pinf.dob = dob
-                self.fortran_module.pinf.pmt = pmt
-                self.fortran_module.pinf.pfi = pfi
-                self.fortran_module.pinf.nsg = nsg
-                self.fortran_module.pinf.pmb = pmb
-                self.fortran_module.pinf.peh = peh
-                self.fortran_module.pinf.pke = pke
+                self.area_fortran.pinf.pxy = pxy
+                self.area_fortran.pinf.kctr = kctr
+                self.area_fortran.pinf.ksh = ksh
+                self.area_fortran.pinf.ksu = ksu
+                self.area_fortran.pinf.agl = agl
+                self.area_fortran.pinf.nfr = nfr
+                self.area_fortran.pinf.hfr = hfr
+                self.area_fortran.pinf.dof = dof
+                self.area_fortran.pinf.nsf = nsf
+                self.area_fortran.pinf.nbl = nbl
+                self.area_fortran.pinf.hbl = hbl
+                self.area_fortran.pinf.dob = dob
+                self.area_fortran.pinf.pmt = pmt
+                self.area_fortran.pinf.pfi = pfi
+                self.area_fortran.pinf.nsg = nsg
+                self.area_fortran.pinf.pmb = pmb
+                self.area_fortran.pinf.peh = peh
+                self.area_fortran.pinf.pke = pke
                 print("成功通过pinf属性初始化COMMON块")
             except Exception as e:
                 print(f"通过pinf属性初始化COMMON块失败: {e}")
@@ -227,10 +182,10 @@ class TestAREA(unittest.TestCase):
 
         try:
             # 查看模块中可用的函数
-            print(f"可用的函数: {dir(self.fortran_module)}")
+            print(f"可用的函数: {dir(self.area_fortran)}")
 
             # 直接调用area函数（而不是area_fortran.area）
-            self.fortran_module.area(zfr, zbl, ao_fortran, pnum)
+            self.area_fortran.area(zfr, zbl, ao_fortran, pnum)
 
             # 比较结果
             print("\n比较Python和Fortran实现的结果:")

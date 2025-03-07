@@ -18,6 +18,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# 导入Fortran编译工具
+from tests.fortran_utils import compile_fortran_module
+
 
 class TestPSTIFF(unittest.TestCase):
     """PSTIFF函数的测试类"""
@@ -28,28 +31,20 @@ class TestPSTIFF(unittest.TestCase):
         在所有测试前运行一次，编译Fortran代码
         """
         # 设置F2PY输出文件的路径
-        fortran_file = (
-            project_root / "tests" / "test_bcad_pile" / "test_modules" / "pstiff.f"
-        )
+        cls.fortran_dir = project_root / "tests" / "test_bcad_pile" / "test_modules"
+        fortran_file = cls.fortran_dir / "pstiff.f"
 
-        # 使用F2PY编译Fortran代码为Python模块
+        # 使用共用的工具函数编译Fortran代码为Python模块
         try:
-            subprocess.run(
-                [
-                    "python",
-                    "-m",
-                    "numpy.f2py",
-                    "-c",
-                    str(fortran_file),
-                    "-m",
-                    "pstiff_fortran",
-                ],
-                cwd=str(fortran_file.parent),
-                check=True,
+            cls.pstiff_fortran = compile_fortran_module(
+                fortran_file_path=fortran_file,
+                module_name="pstiff_fortran",
+                working_dir=cls.fortran_dir
             )
             print("PSTIFF函数Fortran代码编译成功")
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             print(f"编译PSTIFF函数Fortran代码时出错: {e}")
+            cls.pstiff_fortran = None
 
     def test_mulult_function(self) -> None:
         """

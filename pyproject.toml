@@ -9,3 +9,9 @@ dependencies = [
     "numpy>=2.2.3",
     "plotly>=6.0.0",
 ]
+
+[dependency-groups]
+dev = [
+    "meson>=1.7.0",
+    "ninja>=1.11.1.3",
+]
