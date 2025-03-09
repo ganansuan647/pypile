@@ -46,7 +46,7 @@ class ControlModel(BaseModel):
             raise ValueError("输入不能为空")
         
         # 如果[CONTRAL] 或 [CONTROL]标签不存在,直接在最前面添加[CONTROL]
-        if '[CONTRAL]' not in raw_input and '[CONTROL]' not in raw_input:
+        if not re.search(r'\[\s*(?:c|C)[oO][nN][tT][rR][aA]?[lL]\s*\]', raw_input, re.DOTALL):
             raw_input = '[CONTROL]\n' + raw_input
         
         if 'END' not in raw_input and 'end' not in raw_input:
@@ -56,71 +56,116 @@ class ControlModel(BaseModel):
         raw_input = re.sub(r'\n+', '\n', raw_input)
         
         # 解析[CONTROL]或[CONTRAL] 到 END; 或end;之间的内容作为input_text
-        control_pattern = r'\[(CONTROL|CONTRAL)\].*?(?:END;|end;)'
+        control_pattern = r'\[\s*(?:c|C)[oO][nN][tT][rR][aA]?[lL]\s*\].*?(?:END;|end;)'
         match = re.search(control_pattern, raw_input, re.DOTALL)
+        
+        # 如果上面的模式匹配失败，尝试使用更简单的模式
+        if not match:
+            # 尝试从头解析到END;或end;
+            simple_patterns = [
+                r'.*?END;',
+                r'.*?end;'
+            ]
+            for pattern in simple_patterns:
+                match = re.search(pattern, raw_input, re.DOTALL)
+                if match:
+                    break
+        
         if match:
             input_text = match.group(0)
         else:
             raise ValueError("无法找到有效的控制块")
         
-        # 提取JCTR值
-        match = re.search(r'JCTR\s*=\s*(\d+)', raw_input) or re.search(r'\[CONTRAL\]\s+(\d+)', raw_input) or re.search(r'\[CONTROL\]\s+(\d+)', raw_input)
-        if not match:
-            # 尝试查找[CONTROL]或[CONTRAL]标签，然后查找其后的第一个整数
-            control_match = re.search(r'\[(CONTROL|CONTRAL)\]', raw_input)
+        # 预处理：提取所有数值，用于后续处理
+        all_numbers = re.findall(r'-?\d+\.?\d*', input_text)
+        all_numbers = [n for n in all_numbers if n.strip()]  # 过滤空字符串
+        
+        # 尝试多种方式提取JCTR值
+        jctr = None
+        
+        # 方法1：通过JCTR=n格式提取
+        jctr_match = re.search(r'JCTR\s*=\s*(\d+)', input_text)
+        if jctr_match:
+            jctr = int(jctr_match.group(1))
+        
+        # 方法2：通过[CONTROL]或[CONTRAL]后第一个数字提取
+        if jctr is None:
+            control_match = re.search(r'\[\s*(?:c|C)[oO][nN][tT][rR][aA]?[lL]\s*\]', input_text)
             if control_match:
-                # 找到标签后面的文本
-                post_control_text = raw_input[control_match.end():]
-                # 查找第一个整数
+                post_control_text = input_text[control_match.end():]
                 first_int_match = re.search(r'\s*(\d+)', post_control_text)
                 if first_int_match:
                     jctr = int(first_int_match.group(1))
-                    # 更新post_control_text，去掉已解析的JCTR值
-                    post_control_text = post_control_text[first_int_match.end():]
-                else:
-                    raise ValueError("无法在[CONTROL]标签后找到JCTR值")
-            else:
-                raise ValueError("无法解析JCTR值，未找到[CONTROL]或[CONTRAL]标签")
-        else:
-            jctr = int(match.group(1))
-            # 获取匹配之后的文本
-            if '[CONTRAL]' in raw_input or '[CONTROL]' in raw_input:
-                control_tag = '[CONTRAL]' if '[CONTRAL]' in raw_input else '[CONTROL]'
-                control_pos = raw_input.find(control_tag) + len(control_tag)
-                post_match = re.search(r'JCTR\s*=\s*\d+', raw_input[control_pos:])
-                if post_match:
-                    post_control_text = raw_input[control_pos + post_match.end():]
-                else:
-                    # 找不到JCTR标记，则尝试找到JCTR值后的文本
-                    post_match = re.search(r'\s+\d+', raw_input[control_pos:])
-                    if post_match and int(post_match.group().strip()) == jctr:
-                        post_control_text = raw_input[control_pos + post_match.end():]
-                    else:
-                        post_control_text = raw_input[control_pos:]
-            else:
-                post_jctr = re.search(r'JCTR\s*=\s*\d+', raw_input)
-                if post_jctr:
-                    post_control_text = raw_input[post_jctr.end():]
-                else:
-                    post_control_text = raw_input
         
+        # 方法3：如果没有控制标签，尝试使用第一个数字作为JCTR
+        if jctr is None and all_numbers:
+            try:
+                jctr = int(float(all_numbers[0]))
+            except (ValueError, IndexError):
+                pass
+        
+        # 如果仍然找不到JCTR，那么报错
+        if jctr is None:
+            raise ValueError("无法解析JCTR值，请检查输入格式")
+        
+        # 验证JCTR值
+        if jctr not in [1, 2, 3]:
+            raise ValueError("JCTR 必须是 1, 2 或 3")
+            
+        # 获取JCTR之后的文本内容
+        post_control_text = ""
+        
+        # 通过提取JCTR值后的文本
+        if jctr_match:
+            # 如果使用JCTR=格式，获取匹配后的文本
+            post_control_text = input_text[jctr_match.end():].strip()
+        elif control_match and first_int_match:
+            # 如果是通过控制标签后第一个数字，获取该数字后的文本
+            post_control_text = post_control_text[first_int_match.end():].strip()
+        else:
+            # 如果是提取第一个数字，获取该数字后的文本
+            # 找到第一个数字在原文本中的位置
+            if all_numbers:
+                number_pos = input_text.find(all_numbers[0])
+                if number_pos >= 0:
+                    number_end_pos = number_pos + len(all_numbers[0])
+                    post_control_text = input_text[number_end_pos:].strip()
+        
+        # JCTR=1 的处理逻辑
         if jctr == 1:
-            # 解析JCTR=1的情况
+            # 尝试从post_control_text中提取NACT值
+            nact = None
+            
+            # 方法1：通过NACT关键词提取
             nact_match = re.search(r'NACT\s+(\d+)', post_control_text)
             if nact_match:
-                # 传统方式：使用关键字NACT
                 nact = int(nact_match.group(1))
-                forces_text = post_control_text[nact_match.end():].strip()
+                post_nact_text = post_control_text[nact_match.end():].strip()
             else:
-                # 顺序解析：查找下一个整数作为NACT
-                nact_match = re.search(r'\s*(\d+)', post_control_text)
-                if nact_match:
-                    nact = int(nact_match.group(1))
-                    forces_text = post_control_text[nact_match.end():].strip()
+                # 方法2：尝试提取JCTR后的第一个数字作为NACT
+                remaining_numbers = re.findall(r'-?\d+\.?\d*', post_control_text)
+                if remaining_numbers:
+                    try:
+                        nact = int(float(remaining_numbers[0]))
+                        # 更新post_control_text，移除NACT值
+                        nact_pos = post_control_text.find(remaining_numbers[0])
+                        if nact_pos >= 0:
+                            post_nact_text = post_control_text[nact_pos + len(remaining_numbers[0]):].strip()
+                        else:
+                            post_nact_text = post_control_text
+                    except (ValueError, IndexError):
+                        nact = None
+                        post_nact_text = post_control_text
                 else:
-                    raise ValueError("JCTR=1时必须提供NACT值")
+                    nact = None
+                    post_nact_text = post_control_text
             
-            forces_values = list(map(float, re.findall(r'-?\d+\.?\d*', forces_text)))
+            if nact is None:
+                raise ValueError("JCTR=1时必须提供NACT值")
+                
+            # 提取剩余数值作为力学作用点信息
+            forces_values = re.findall(r'-?\d+\.?\d*', post_nact_text)
+            forces_values = [float(v) for v in forces_values if v.strip()]
             
             if len(forces_values) < nact * 8:
                 raise ValueError(f"外力信息不完整，需要{nact * 8}个值，但只找到{len(forces_values)}个")
@@ -147,22 +192,25 @@ class ControlModel(BaseModel):
             
         elif jctr == 3:
             # JCTR=3的情况，需要额外的INO参数
-            ino_match = re.search(r'INO\s*=\s*(\d+)', post_control_text) or re.search(r'\[CONTRAL\]\s+3\s+(\d+)', post_control_text)
+            ino = None
+            
+            # 方法1：通过INO=格式提取
+            ino_match = re.search(r'INO\s*=\s*(\d+)', post_control_text)
             if ino_match:
-                # 传统方式：使用关键字INO
                 ino = int(ino_match.group(1))
             else:
-                # 顺序解析：查找下一个整数作为INO
-                ino_match = re.search(r'\s*(\d+)', post_control_text)
-                if ino_match:
-                    ino = int(ino_match.group(1))
-                else:
-                    raise ValueError("JCTR=3时必须提供INO参数")
+                # 方法2：尝试提取post_control_text中的第一个数字作为INO
+                remaining_numbers = re.findall(r'-?\d+\.?\d*', post_control_text)
+                if remaining_numbers:
+                    try:
+                        ino = int(float(remaining_numbers[0]))
+                    except (ValueError, IndexError):
+                        pass
+            
+            if ino is None:
+                raise ValueError("JCTR=3时必须提供INO参数")
             
             data['control'] = Control3Model(JCTR=jctr, INO=ino)
-            
-        else:
-            raise ValueError("JCTR 必须是 1, 2 或 3")
         
         return data
 
@@ -227,31 +275,34 @@ if __name__ == "__main__":
 
     try:
         model1 = parse_control_text(input_text1)
-        print("JCTR=1 模型验证通过:", model1.control)
+        print("JCTR=1 模型验证通过:", model1.control.JCTR == 1)
         print(f"作用点数量: {model1.control.NACT}")
-        print(f"第一个作用点: {model1.control.force_points[0]}")
+        for i, point in enumerate(model1.control.force_points):
+            print(f"作用点 {i+1}: {point}")
         
         model2 = parse_control_text(input_text2)
-        print("JCTR=2 模型验证通过:", model2.control)
+        print("JCTR=2 模型验证通过:", model2.control.JCTR == 2)
         
         model3 = parse_control_text(input_text3)
-        print("JCTR=3 模型验证通过:", model3.control)
+        print("JCTR=3 模型验证通过:", model3.control.JCTR == 3)
         print(f"指定桩号: {model3.control.INO}")
         
         model4 = parse_control_text(input_text4)
-        print("无显式JCTR字段情况 模型验证通过:", model4.control)
+        print("无显式JCTR字段情况 模型验证通过:", model4.control.JCTR == 1)
         if hasattr(model4.control, 'NACT'):
             print(f"作用点数量: {model4.control.NACT}")
-            print(f"第一个作用点: {model4.control.force_points[0]}")
+            for i, point in enumerate(model4.control.force_points):
+                print(f"作用点 {i+1}: {point}")
         
         model5 = parse_control_text(input_text5)
-        print("顺序解析NACT情况 模型验证通过:", model5.control)
+        print("顺序解析NACT情况 模型验证通过:", model5.control.JCTR == 1)
         if hasattr(model5.control, 'NACT'):
             print(f"作用点数量: {model5.control.NACT}")
-            print(f"第一个作用点: {model5.control.force_points[0]}")
+            for i, point in enumerate(model5.control.force_points):
+                print(f"作用点 {i+1}: {point}")
         
         model6 = parse_control_text(input_text6)
-        print("顺序解析INO情况 模型验证通过:", model6.control)
+        print("顺序解析INO情况 模型验证通过:", model6.control.JCTR == 3)
         if hasattr(model6.control, 'INO'):
             print(f"指定桩号: {model6.control.INO}")
         
