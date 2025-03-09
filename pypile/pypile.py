@@ -8,6 +8,8 @@ Date: 2025-03-09
 
 import numpy as np
 import math
+from calculation.process import run_calculation
+
 __version__ = "0.1.0"
 
 class BCADPile:
@@ -1202,192 +1204,6 @@ this program, please do not hesitate to write to :
         
         return so
 
-    def eforce(self, pnum, btx, bty, zbl, duk):
-        """计算桩体的位移和内力"""
-        # 输出桩的平面位置到pos文件
-        self.pos_file.write(f"{pnum}\n")
-        for i in range(pnum):
-            line = " ".join([f"{self.pxy[i, j]:14.4e}" for j in range(2)])
-            self.pos_file.write(line + "\n")
-        
-        # 计算每个桩的位移和内力
-        for k in range(pnum):
-            # 获取桩的单元刚度和位移
-            ce = duk[k, :]
-            se = np.zeros((6, 6), dtype=float)
-            for i in range(6):
-                for j in range(6):
-                    se[i, j] = self.esp[(k-1)*6+i, j]
-            
-            # 计算桩顶部的内力
-            pe = np.dot(se, ce)
-            
-            # 初始化数组
-            zh = np.zeros(self.N_max_calc_points, dtype=float)
-            fx = np.zeros((self.N_max_calc_points, 4), dtype=float)
-            fy = np.zeros((self.N_max_calc_points, 4), dtype=float)
-            fz = np.zeros(self.N_max_calc_points, dtype=float)
-            psx = np.zeros(self.N_max_calc_points, dtype=float)
-            psy = np.zeros(self.N_max_calc_points, dtype=float)
-            
-            # 设置第一个节点的信息
-            zh[0] = 0.0
-            fx[0, 0] = ce[0]
-            fx[0, 1] = ce[4]
-            fx[0, 2] = pe[0]
-            fx[0, 3] = pe[4]
-            fy[0, 0] = ce[1]
-            fy[0, 1] = ce[3]
-            fy[0, 2] = pe[1]
-            fy[0, 3] = pe[3]
-            fz[0] = pe[2]
-            
-            # 沿桩长度计算位移和内力
-            nsum = 0
-            
-            # 地上段计算
-            for ia in range(int(self.nfr[k])):
-                hl = self.hfr[k, ia] / self.nsf[k, ia]
-                a, b = self.eaj(self.ksh[k], self.pke[k], self.dof[k, ia])
-                ej = self.peh[k] * b
-                r = np.zeros((4, 4), dtype=float)
-                self.mfree(ej, hl, r)
-                
-                for in_val in range(int(self.nsf[k, ia])):
-                    xa = fx[nsum, :]
-                    xc = fy[nsum, :]
-                    xc[1] = -xc[1]
-                    xc[3] = -xc[3]
-                    
-                    xb = np.dot(r, xa)
-                    xd = np.dot(r, xc)
-                    
-                    nsum += 1
-                    fx[nsum, :] = xb
-                    fy[nsum, :] = xd
-                    fy[nsum, 1] = -xd[1]
-                    fy[nsum, 3] = -xd[3]
-                    zh[nsum] = zh[nsum-1] + hl
-                    fz[nsum] = fz[nsum-1]
-            
-            # 保存地面位置索引
-            ig = nsum
-            zg = zh[nsum]
-            psx[nsum] = 0.0
-            psy[nsum] = 0.0
-            
-            # 地下段计算
-            for ia in range(int(self.nbl[k])):
-                hl = self.hbl[k, ia] / self.nsg[k, ia]
-                a, b = self.eaj(self.ksh[k], self.pke[k], self.dob[k, ia])
-                ej = self.peh[k] * b
-                
-                for in_val in range(int(self.nsg[k, ia])):
-                    h1 = zh[nsum] - zg
-                    h2 = h1 + hl
-                    
-                    xa = fx[nsum, :].copy()
-                    xc = fy[nsum, :].copy()
-                    xa[3] = -xa[3]
-                    xc[1] = -xc[1]
-                    
-                    r = np.zeros((4, 4), dtype=float)
-                    self.saa(btx[k, ia], ej, h1, h2, r)
-                    xb = np.dot(r, xa)
-                    
-                    if abs(btx[k, ia] - bty[k, ia]) > 1.0e-3:
-                        r = np.zeros((4, 4), dtype=float)
-                        self.saa(bty[k, ia], ej, h1, h2, r)
-                    
-                    xd = np.dot(r, xc)
-                    
-                    nsum += 1
-                    fx[nsum, :] = xb
-                    fy[nsum, :] = xd
-                    fx[nsum, 3] = -xb[3]
-                    fy[nsum, 1] = -xd[1]
-                    zh[nsum] = zh[nsum-1] + hl
-                    psx[nsum] = fx[nsum, 0] * h2 * self.pmt[k, ia]
-                    psy[nsum] = fy[nsum, 0] * h2 * self.pmt[k, ia]
-                    
-                    if self.ksu[k] >= 3:
-                        fz[nsum] = fz[nsum-1]
-                    else:
-                        fz[nsum] = fz[ig] * (1.0 - h2**2 / zbl[k]**2)
-            
-            # 输出桩体位移和内力到输出文件
-            self.output_file.write("       ****************************************************************************************\n")
-            self.output_file.write(f"                                  NO. {k} # PILE\n")
-            self.output_file.write("       ****************************************************************************************\n")
-            self.output_file.write(f"\n            Coordinator of the pile: (x,y) = ({self.pxy[k, 0]:12.4e} ,{self.pxy[k, 1]:12.4e} )\n\n")
-            self.output_file.write("            Displacements and internal forces at the top of pile:\n")
-            self.output_file.write(f"\n               UX= {ce[0]:12.4e} (m)         NX= {pe[0]:12.4e} (t)\n")
-            self.output_file.write(f"               UY= {ce[1]:12.4e} (m)         NY= {pe[1]:12.4e} (t)\n")
-            self.output_file.write(f"               UZ= {ce[2]:12.4e} (m)         NZ= {pe[2]:12.4e} (t)\n")
-            self.output_file.write(f"               SX= {ce[3]:12.4e} (rad)       MX= {pe[3]:12.4e} (t*m)\n")
-            self.output_file.write(f"               SY= {ce[4]:12.4e} (rad)       MY= {pe[4]:12.4e} (t*m)\n")
-            self.output_file.write(f"               SZ= {ce[5]:12.4e} (rad)       MZ= {pe[5]:12.4e} (t*m)\n\n")
-            
-            self.output_file.write("       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-            self.output_file.write("                                Displacements of the pile body and\n")
-            self.output_file.write("                             Compression stresses of soil (PSX,PSY)\n")
-            self.output_file.write("       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-            self.output_file.write("\n               Z            UX            UY            SX            SY            PSX            PSY\n")
-            self.output_file.write("              (m)           (m)           (m)          (rad)         (rad)         (t/m2)         (t/m2)\n\n")
-            
-            # 输出地上段数据
-            for i in range(ig):
-                line = f"       {zh[i]:14.4e}{fx[i, 0]:14.4e}{fy[i, 0]:14.4e}{fy[i, 1]:14.4e}{fx[i, 1]:14.4e}"
-                self.output_file.write(line + "\n")
-            
-            # 输出地下段数据
-            for i in range(ig, nsum+1):
-                line = f"       {zh[i]:14.4e}{fx[i, 0]:14.4e}{fy[i, 0]:14.4e}{fy[i, 1]:14.4e}{fx[i, 1]:14.4e}{psx[i]:14.4e}{psy[i]:14.4e}"
-                self.output_file.write(line + "\n")
-            
-            self.output_file.write("\n\n")
-            self.output_file.write("       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-            self.output_file.write("                                Internal forces of the pile body\n")
-            self.output_file.write("       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-            self.output_file.write("\n                  Z              NX              NY              NZ              MX              MY\n")
-            self.output_file.write("                 (m)             (t)             (t)             (t)            (t*m)           (t*m)\n\n")
-            
-            # 输出内力数据
-            for i in range(nsum+1):
-                line = f"       {zh[i]:16.4e}{fx[i, 2]:16.4e}{fy[i, 2]:16.4e}{fz[i]:16.4e}{fy[i, 3]:16.4e}{fx[i, 3]:16.4e}"
-                self.output_file.write(line + "\n")
-            
-            # 输出位移和内力数据到pos文件
-            # 为地上段设置零土压力
-            for i in range(ig):
-                psx[i] = 0.0
-                psy[i] = 0.0
-            
-            # 写入桩号和节点数
-            self.pos_file.write(f"{k} {nsum+1}\n")
-            # 写入桩顶坐标
-            self.pos_file.write(f"{self.pxy[k, 0]:14.4e} {self.pxy[k, 1]:14.4e}\n")
-            # 写入各节点Z坐标
-            line = " ".join([f"{zh[i]:14.4e}" for i in range(nsum+1)])
-            self.pos_file.write(line + "\n")
-            # 写入X方向变形和内力
-            for i in range(nsum+1):
-                line = " ".join([f"{fx[i, j]:14.4e}" for j in range(4)])
-                self.pos_file.write(line + "\n")
-            # 写入Y方向变形和内力
-            for i in range(nsum+1):
-                line = " ".join([f"{fy[i, j]:14.4e}" for j in range(4)])
-                self.pos_file.write(line + "\n")
-            # 写入Z方向内力
-            line = " ".join([f"{fz[i]:14.4e}" for i in range(nsum+1)])
-            self.pos_file.write(line + "\n")
-            # 写入X方向土压力
-            line = " ".join([f"{psx[i]:14.4e}" for i in range(nsum+1)])
-            self.pos_file.write(line + "\n")
-            # 写入Y方向土压力
-            line = " ".join([f"{psy[i]:14.4e}" for i in range(nsum+1)])
-            self.pos_file.write(line + "\n")
-
     def run(self):
         """运行程序的主函数"""
         # 显示程序头
@@ -1417,31 +1233,8 @@ this program, please do not hesitate to write to :
         force = np.zeros(6, dtype=float)
         jctr, ino, pnum, snum, force, zfr, zbl = self.r_data(jctr, ino, force)
         
-        # 计算桩的变形因子
-        print("\n\n       *** To calculate deformation factors of piles ***")
-        btx = np.zeros((pnum, self.N_max_layer), dtype=float)
-        bty = np.zeros((pnum, self.N_max_layer), dtype=float)
-        self.btxy(pnum, zfr, zbl, btx, bty)
-        
-        # 计算桩底面积和轴向刚度
-        print("\n\n       *** To calculate axis stiffness of piles ***")
-        ao = np.zeros(pnum, dtype=float)
-        self.area(pnum, zfr, zbl, ao)
-        rzz = np.zeros(pnum, dtype=float)
-        self.stiff_n(pnum, zfr, zbl, ao, rzz)
-        
-        # 计算桩的侧向刚度
-        print("\n\n       *** To calculate lateral stiffness of piles ***")
-        self.pstiff(pnum, rzz, btx, bty)
-        
-        # 计算桩基础帽的位移
-        print("\n\n       *** To execute entire pile foundation analysis ***\n\n")
-        duk = np.zeros((pnum, 6), dtype=float)
-        so = np.zeros((6, 6), dtype=float)
-        self.disp(jctr, ino, pnum, snum, force, duk, so)
-        
-        # 计算桩体的位移和内力
-        self.eforce(pnum, btx, bty, zbl, duk)
+        # 执行计算流程 (使用拆分到calculation文件夹的计算模块)
+        so = run_calculation(self, jctr, ino, pnum, snum, force, zfr, zbl)
         
         # 关闭文件
         self.input_file.close()
