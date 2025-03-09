@@ -224,9 +224,10 @@ class TestNoSimuModel:
     
     def test_missing_tag(self, no_simu_model_inputs: dict):
         """测试缺少[NO_SIMU]标签的情况"""
-        # 缺少标签应该被自动添加
-        model = parse_no_simu_text(no_simu_model_inputs["missing_tag"])
-        assert model.no_simu.KCTR == [1, 1, 1, 1, 1]
+        # 缺少标签应该会报错
+        with pytest.raises(ValidationError) as excinfo:
+            parse_no_simu_text(no_simu_model_inputs["missing_tag"])
+        assert "无法找到有效的非模拟桩信息标签[No Simu]或[no_simu]" in str(excinfo.value)
     
     def test_missing_end(self, no_simu_model_inputs: dict):
         """测试缺少END;标签的情况"""

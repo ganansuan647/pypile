@@ -8,6 +8,7 @@
 import pytest
 import sys
 from pathlib import Path
+from pydantic import ValidationError
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent
@@ -174,24 +175,28 @@ class TestControlModel:
     
     def test_invalid_jctr(self, control_model_inputs: dict):
         """测试无效的JCTR值"""
-        with pytest.raises(ValueError, match="JCTR 必须是 1, 2 或 3"):
+        with pytest.raises(ValidationError) as exc_info:
             parse_control_text(control_model_inputs["invalid_jctr"])
+        assert "JCTR 必须是 1, 2 或 3" in str(exc_info.value)
     
     def test_missing_control_tag(self, control_model_inputs: dict):
         """测试缺少[CONTROL]标签的情况"""
-        # 期望成功处理缺少标签的情况，自动添加[CONTROL]标签
-        model = parse_control_text(control_model_inputs["missing_control_tag"])
-        assert model.control.JCTR == 2
+        # 期望成功处理缺少标签的情况，报错
+        with pytest.raises(ValidationError) as exc_info:
+            parse_control_text(control_model_inputs["missing_control_tag"])
+        assert "无法找到有效的控制信息标签[Control]" in str(exc_info.value)
     
     def test_jctr_1_missing_nact(self, control_model_inputs: dict):
         """测试JCTR=1但缺少NACT的情况"""
-        with pytest.raises(ValueError, match="JCTR=1时必须提供NACT值"):
+        with pytest.raises(ValidationError) as exc_info:
             parse_control_text(control_model_inputs["jctr1_missing_nact"])
+        assert "JCTR=1时必须提供NACT值" in str(exc_info.value)
     
     def test_jctr_3_missing_ino(self, control_model_inputs: dict):
         """测试JCTR=3但缺少INO的情况"""
-        with pytest.raises(ValueError, match="JCTR=3时必须提供INO参数"):
+        with pytest.raises(ValidationError) as exc_info:
             parse_control_text(control_model_inputs["jctr3_missing_ino"])
+        assert "JCTR=3时必须提供INO参数" in str(exc_info.value)
 
 
 if __name__ == "__main__":

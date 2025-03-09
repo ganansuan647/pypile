@@ -8,6 +8,7 @@
 import pytest
 import sys
 from pathlib import Path
+from pydantic import ValidationError
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent
@@ -121,13 +122,10 @@ class TestArrangeModel:
     
     def test_missing_tag(self, arrange_model_inputs: dict):
         """测试缺少[ARRANGE]标签的情况"""
-        # 缺少标签应该被自动添加
-        model = parse_arrange_text(arrange_model_inputs["missing_tag"])
-        
-        assert model.arrange.PNUM == 2
-        assert model.arrange.SNUM == 1
-        assert len(model.arrange.pile_coordinates) == 2
-        assert len(model.arrange.simu_pile_coordinates) == 1
+        # 缺少标签应该报错
+        with pytest.raises(ValidationError) as excinfo:
+            parse_arrange_text(arrange_model_inputs["missing_tag"])
+        assert "无法找到有效的布置块[ARRANGE]" in str(excinfo.value)
     
     def test_missing_end(self, arrange_model_inputs: dict):
         """测试缺少END;标签的情况"""

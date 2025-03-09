@@ -45,32 +45,21 @@ class ControlModel(BaseModel):
         if not raw_input:
             raise ValueError("输入不能为空")
         
-        # 如果[CONTRAL] 或 [CONTROL]标签不存在,直接在最前面添加[CONTROL]
-        if not re.search(r'\[\s*(?:c|C)[oO][nN][tT][rR][aA]?[lL]\s*\]', raw_input, re.DOTALL):
-            raw_input = '[CONTROL]\n' + raw_input
+        # 如果[CONTRAL] 或 [CONTROL]标签不存在,报错
+        if not re.search(r'\[\s*(?:CONTROL|CONTRAL)\s*\]', raw_input, re.IGNORECASE | re.DOTALL):
+            raise ValueError("无法找到有效的控制信息标签[Control]")
         
-        if 'END' not in raw_input and 'end' not in raw_input:
+        # 使用正则表达式检查任意大小写的END
+        if not re.search(r'END;', raw_input, re.IGNORECASE):
             raw_input += '\nEND;'
             
         # 将多个\n替换为\n
         raw_input = re.sub(r'\n+', '\n', raw_input)
         
-        # 解析[CONTROL]或[CONTRAL] 到 END; 或end;之间的内容作为input_text
-        control_pattern = r'\[\s*(?:c|C)[oO][nN][tT][rR][aA]?[lL]\s*\].*?(?:END;|end;)'
-        match = re.search(control_pattern, raw_input, re.DOTALL)
-        
-        # 如果上面的模式匹配失败，尝试使用更简单的模式
-        if not match:
-            # 尝试从头解析到END;或end;
-            simple_patterns = [
-                r'.*?END;',
-                r'.*?end;'
-            ]
-            for pattern in simple_patterns:
-                match = re.search(pattern, raw_input, re.DOTALL)
-                if match:
-                    break
-        
+        # 解析[CONTROL]或[CONTRAL] 到 END; 之间的内容作为input_text
+        control_pattern = r'\[\s*(?:CONTROL|CONTRAL)\s*\].*?(?:END;)'
+        match = re.search(control_pattern, raw_input, re.IGNORECASE | re.DOTALL)
+
         if match:
             input_text = match.group(0)
         else:
@@ -84,13 +73,13 @@ class ControlModel(BaseModel):
         jctr = None
         
         # 方法1：通过JCTR=n格式提取
-        jctr_match = re.search(r'JCTR\s*=\s*(\d+)', input_text)
+        jctr_match = re.search(r'JCTR\s*=\s*(\d+)', input_text, re.IGNORECASE)
         if jctr_match:
             jctr = int(jctr_match.group(1))
         
         # 方法2：通过[CONTROL]或[CONTRAL]后第一个数字提取
         if jctr is None:
-            control_match = re.search(r'\[\s*(?:c|C)[oO][nN][tT][rR][aA]?[lL]\s*\]', input_text)
+            control_match = re.search(r'\[\s*(?:CONTROL|CONTRAL)\s*\]', input_text, re.IGNORECASE)
             if control_match:
                 post_control_text = input_text[control_match.end():]
                 first_int_match = re.search(r'\s*(\d+)', post_control_text)
@@ -121,7 +110,8 @@ class ControlModel(BaseModel):
             post_control_text = input_text[jctr_match.end():].strip()
         elif control_match and first_int_match:
             # 如果是通过控制标签后第一个数字，获取该数字后的文本
-            post_control_text = post_control_text[first_int_match.end():].strip()
+            post_control_start = control_match.end() + len(first_int_match.group(0))
+            post_control_text = input_text[post_control_start:].strip()
         else:
             # 如果是提取第一个数字，获取该数字后的文本
             # 找到第一个数字在原文本中的位置
@@ -137,7 +127,7 @@ class ControlModel(BaseModel):
             nact = None
             
             # 方法1：通过NACT关键词提取
-            nact_match = re.search(r'NACT\s+(\d+)', post_control_text)
+            nact_match = re.search(r'NACT\s+(\d+)', post_control_text, re.IGNORECASE)
             if nact_match:
                 nact = int(nact_match.group(1))
                 post_nact_text = post_control_text[nact_match.end():].strip()
@@ -195,7 +185,7 @@ class ControlModel(BaseModel):
             ino = None
             
             # 方法1：通过INO=格式提取
-            ino_match = re.search(r'INO\s*=\s*(\d+)', post_control_text)
+            ino_match = re.search(r'INO\s*=\s*(\d+)', post_control_text, re.IGNORECASE)
             if ino_match:
                 ino = int(ino_match.group(1))
             else:

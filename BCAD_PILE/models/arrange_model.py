@@ -51,25 +51,26 @@ class ArrangeInfoModel(BaseModel):
             raise ValueError("输入不能为空")
         
         # 如果[ARRANGE]标签不存在，直接在最前面添加[ARRANGE]
-        if '[ARRANGE]' not in raw_input:
-            raw_input = '[ARRANGE]\n' + raw_input
+        if not re.search(r'\[ARRANGE\]', raw_input, re.IGNORECASE | re.DOTALL):
+            raise ValueError("无法找到有效的布置块[ARRANGE]")
         
-        if 'END' not in raw_input and 'end' not in raw_input:
+        # 使用正则表达式检查任意大小写的END
+        if not re.search(r'END;', raw_input, re.IGNORECASE):
             raw_input += '\nEND;'
             
         # 将多个\n替换为\n
         raw_input = re.sub(r'\n+', '\n', raw_input)
         
-        # 解析[ARRANGE] 到 END; 或end;之间的内容
-        arrange_pattern = r'\[ARRANGE\].*?(?:END;|end;)'
-        match = re.search(arrange_pattern, raw_input, re.DOTALL)
+        # 解析[ARRANGE] 到 END; 之间的内容
+        arrange_pattern = r'\[ARRANGE\].*?(?:END;)'
+        match = re.search(arrange_pattern, raw_input, re.IGNORECASE | re.DOTALL)
         if match:
             input_text = match.group(0)
         else:
             raise ValueError("无法找到有效的布置块")
         
         # 移除[ARRANGE]标签和END;，仅保留数据内容
-        content = re.sub(r'\[ARRANGE\]|\s*(?:END;|end;)', '', input_text, flags=re.DOTALL).strip()
+        content = re.sub(r'\[ARRANGE\]|\s*(?:END;)', '', input_text, flags=re.IGNORECASE | re.DOTALL).strip()
         
         # 提取所有的数字（整数和浮点数）
         values = list(map(float, re.findall(r'-?\d+\.?\d*', content)))

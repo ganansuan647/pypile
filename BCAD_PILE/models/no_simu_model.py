@@ -121,9 +121,13 @@ class NoSimuInfoModel(BaseModel):
         if not raw_input:
             raise ValueError("输入不能为空")
         
+        # 先清理输入文本的前后空白
+        raw_input = raw_input.strip()
+        
         # 如果[NO_SIMU]标签不存在，直接在最前面添加[NO_SIMU]
-        if not re.search(r'\[\s*(?:n|N)[oO]\s*(?:s|S)[iI][mM][uU]\s*\]', raw_input, re.DOTALL):
-            raw_input = '[NO_SIMU]\n' + raw_input
+        tag_pattern = re.compile(r'\[(no[\s_]*(simu))\]', re.IGNORECASE)
+        if not tag_pattern.search(raw_input):
+            raise ValueError("无法找到有效的非模拟桩信息标签[No Simu]或[no_simu]")
         
         if 'END' not in raw_input and 'end' not in raw_input:
             raw_input += '\nEND;'
@@ -131,32 +135,14 @@ class NoSimuInfoModel(BaseModel):
         # 将多个\n替换为\n
         raw_input = re.sub(r'\n+', '\n', raw_input)
         
-        # 解析[NO_SIMU] 到 END; 或end;之间的内容
-        no_simu_pattern = r'\[\s*(?:n|N)[oO]\s*(?:s|S)[iI][mM][uU]\s*\].*?(?:END;|end;)'
-        match = re.search(no_simu_pattern, raw_input, re.DOTALL)
-        
-        # 如果上面的模式匹配失败，尝试使用更简单的模式
-        if not match:
-            simple_patterns = [
-                r'\[NO_SIMU\].*?END;',
-                r'\[no_simu\].*?END;',
-                r'\[No Simu\].*?END;',
-                r'\[NO SIMU\].*?end;',
-                r'\[no_simu\].*?end;',
-                r'\[No Simu\].*?end;'
-            ]
-            for pattern in simple_patterns:
-                match = re.search(pattern, raw_input, re.DOTALL)
-                if match:
-                    break
+        # 解析[NO_SIMU] 到 END; 或end;之间的内容，更灵活地处理空白和缩进
+        no_simu_pattern = r'\s*\[(no[\s_]*(simu))\]\s*(.*?)\s*(?:END;|end;)'
+        match = re.search(no_simu_pattern, raw_input, re.DOTALL | re.IGNORECASE)
         
         if match:
-            input_text = match.group(0)
+            content = match.group(3).strip()
         else:
             raise ValueError("无法找到有效的非模拟桩信息块")
-        
-        # 清理多余的空格和换行
-        content = re.sub(r'\[\s*(?:n|N)[oO][\s_]*(?:s|S)[iI][mM][uU]\s*\]|\s*(?:END;|end;)', '', input_text, flags=re.DOTALL).strip()
         
         # 按行分割内容
         lines = [line.strip() for line in content.split('\n') if line.strip()]
