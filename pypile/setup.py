@@ -1,12 +1,12 @@
 # setup.py
 """
-Setup script for the BCAD_PILE package.
+Setup script for the pypile package.
 """
 
 from setuptools import setup, find_packages
 
 setup(
-    name="bcad_pile",
+    name="pypile",
     version="1.0.0",
     description="Spatial Static Analysis of Pile Foundations",
     author="Converted from Fortran by Claude",
@@ -20,7 +20,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "bcad_pile=bcad_pile.main:main",
+            "pypile=pypile.main:main",
         ],
     },
     classifiers=[

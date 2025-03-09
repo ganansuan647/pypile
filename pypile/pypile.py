@@ -59,7 +59,7 @@ class BCADPile:
         """显示程序头信息"""
         print(f"""
 
-Welcome to use the BCAD_PILE program !!
+Welcome to use the pypile program !!
 
 This program is aimed to execute spatial statical analysis of pile
 foundations of bridge substructures. If you have any questions about
@@ -91,7 +91,7 @@ this program, please do not hesitate to write to :
        +                        Copyright 2025, Version {__version__}  modified by Lingyun Gou                  +
        ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-        Welcome to use the BCAD_PILE program !!
+        Welcome to use the pypile program !!
         This program is aimed to execute spatial statical analysis of pile
         foundations of bridge substructures. If you have any questions about
         this program, please do not hesitate to write to :

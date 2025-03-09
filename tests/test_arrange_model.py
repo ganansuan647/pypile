@@ -14,7 +14,7 @@ from pydantic import ValidationError
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from bcad_pile.models.arrange_model import parse_arrange_text, ArrangeInfoModel
+from pypile.models.arrange_model import parse_arrange_text, ArrangeInfoModel
 
 
 @pytest.fixture

@@ -14,7 +14,7 @@ from pydantic import ValidationError
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from bcad_pile.models.no_simu_model import parse_no_simu_text, NoSimuInfoModel
+from pypile.models.no_simu_model import parse_no_simu_text, NoSimuInfoModel
 
 
 @pytest.fixture

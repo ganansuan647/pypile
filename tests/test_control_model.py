@@ -14,7 +14,7 @@ from pydantic import ValidationError
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from bcad_pile.models.control_model import parse_control_text, ControlModel
+from pypile.models.control_model import parse_control_text, ControlModel
 
 
 @pytest.fixture

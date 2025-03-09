@@ -17,7 +17,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from bcad_pile.models.simu_pile_model import SimuPileInfoModel, parse_simu_pile_text
+from pypile.models.simu_pile_model import SimuPileInfoModel, parse_simu_pile_text
 
 
 @pytest.fixture
