@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-PyPile Python版本
+BCAD_PILE Python版本
 Created by: Lingyun Gou, Dept. of Bridge Engr.,Tongji University
-Date: 2025-03-09
+Date: 2025-03-01
+Original by: CAD Research Group, Dept. of Bridge Engr.,Tongji University
+这个程序旨在执行桥梁桩基础的空间静力分析
 """
 
 import numpy as np
 import math
-__version__ = "0.1.0"
+__version__ = "1.10"
 
 class BCADPile:
     def __init__(self,
