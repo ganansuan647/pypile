@@ -1116,7 +1116,7 @@ this program, please do not hesitate to write to :
         tu[2, 4] = -x
         
         return tu
-
+    
     def disp(self, jctr, ino, pnum, snum, force, duk, so):
         """计算桩基础帽的位移"""
         # 计算整个桩基础的刚度

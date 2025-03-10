@@ -8,50 +8,16 @@ Date: 2025-03-09
 
 import numpy as np
 import math
+from pathlib import Path
 from calculation.process import run_calculation
+
+from models import PileModel
 
 __version__ = "0.1.0"
 
-class BCADPile:
-    def __init__(self,
-                 N_max_pile:int = 1000,
-                 N_max_pile_simu:int = 20,
-                 N_max_layer:int = 15,
-                 N_max_calc_points:int = 100
+class PileManager:
+    def __init__(self
                  ):
-        # 初始化参数
-        self.N_max_pile = N_max_pile
-        self.N_max_pile_simu = N_max_pile_simu
-        self.N_max_layer = N_max_layer
-        self.N_max_calc_points = N_max_calc_points
-        
-        # 非模拟桩信息
-        self.pxy = np.zeros((self.N_max_pile, 2), dtype=float)  # 桩的坐标
-        self.kctr = np.zeros(self.N_max_pile, dtype=int)        # 桩的控制信息
-        self.ksh = np.zeros(self.N_max_pile, dtype=int)         # 桩断面形状(0-圆形,1-方形)
-        self.ksu = np.zeros(self.N_max_pile, dtype=int)         # 桩底约束条件
-        self.agl = np.zeros((self.N_max_pile, 3), dtype=float)  # 桩的倾斜方向余弦
-        self.nfr = np.zeros(self.N_max_pile, dtype=int)         # 桩地上段段数
-        self.hfr = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地上段每段高度
-        self.dof = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地上段每段直径
-        self.nsf = np.zeros((self.N_max_pile, self.N_max_layer), dtype=int)   # 桩地上段计算分段数
-        self.nbl = np.zeros(self.N_max_pile, dtype=int)         # 桩地下段段数
-        self.hbl = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地下段每段高度
-        self.dob = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地下段每段直径
-        self.pmt = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地下段每段地基反力系数
-        self.pfi = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地下段每段摩擦角
-        self.nsg = np.zeros((self.N_max_pile, self.N_max_layer), dtype=int)   # 桩地下段计算分段数
-        self.pmb = np.zeros(self.N_max_pile, dtype=float)       # 桩端土抗力系数
-        self.peh = np.zeros(self.N_max_pile, dtype=float)       # 桩材弹性模量
-        self.pke = np.zeros(self.N_max_pile, dtype=float)       # 桩材剪切模量与弹性模量比
-
-        # 模拟桩信息
-        self.sxy = np.zeros((self.N_max_pile_simu, 2), dtype=float)    # 模拟桩坐标
-        self.ksctr = np.zeros(self.N_max_pile_simu, dtype=int)         # 模拟桩控制信息
-
-        # 桩单元刚度
-        self.esp = np.zeros((self.N_max_pile**2, 6), dtype=float)
-        
         # 输入输出文件
         self.input_file = None
         self.output_file = None
@@ -106,453 +72,178 @@ this program, please do not hesitate to write to :
                                                                     P.R. of China
 """)
 
-    def f_name(self, filename, ext):
-        """组合文件名和扩展名"""
-        base_name = filename.strip()
-        return base_name + ext
+    def calculate_total_force(self, force_points):
+        """计算外部荷载的合力"""
+        force = np.zeros(6, dtype=float)
+        
+        for point in force_points:
+            x, y = point[:2]
+            local_force = point[2:]
+            transformation_matrix = self.tmatx(x, y)
+            global_force = np.dot(transformation_matrix.T, local_force)
+            force += global_force
+        
+        return force
 
-    def r_data(self, jctr: int, ino: int, force: np.ndarray) -> tuple[int, int, int, int, np.ndarray, np.ndarray, np.ndarray]:
-        """读取初始结构数据
+    def init_parameters(self, Pile: PileModel):
+        """初始化参数"""
+        self.Pile = Pile
+        # 初始化参数
+        self.pnum = Pile.arrange.pnum   # 非模拟桩数量，来自 arrange模块
+        self.snum = Pile.arrange.snum   # 模拟桩数量，来自 arrange模块
+        self.N_max_pile = self.pnum + self.snum
+        self.N_max_layer = max(pile_type.NFR+pile_type.NBL for pile_type in Pile.no_simu.pile_types.values())
+        self.N_max_calc_points = max(pile_type.above_ground_sections.NSF+sum(layer.NSG for layer in pile_type.below_ground_sections) for pile_type in Pile.no_simu.pile_types.values())
         
-        Args:
-            jctr: 控制参数
-            ino: 输出控制参数
-            force: 外部荷载数组
-            
-        Returns:
-            tuple: (jctr, ino, pnum, snum, force, zfr, zbl)
-        """
-        # 使用上下文管理器读取块
-        def read_block_until(end_marker: str = "end;") -> list[str]:
-            """读取数据块直到遇到结束标记
-            
-            Args:
-                end_marker: 结束标记字符串
-                
-            Returns:
-                list: 读取的行列表
-            """
-            lines = []
-            while True:
-                line = self.input_file.readline().strip()
-                if not line or line.lower() == end_marker.lower():
-                    break
-                lines.append(line)
-            return lines
-            
-        def parse_float_list(line_str: str) -> list[float]:
-            """解析包含浮点数的字符串行
-            
-            Args:
-                line_str: 包含浮点数的字符串
-                
-            Returns:
-                list: 浮点数列表
-            """
-            return [float(x) for x in line_str.split()]
-            
-        def parse_int_list(line_str: str) -> list[int]:
-            """解析包含整数的字符串行
-            
-            Args:
-                line_str: 包含整数的字符串
-                
-            Returns:
-                list: 整数列表
-            """
-            return [int(x) for x in line_str.split()]
-            
-        def read_multi_line_data(count: int, parser_func: callable, 
-                                 items_per_row: int = None) -> list:
-            """读取可能跨多行的数据
-            
-            Args:
-                count: 需要读取的项目数量
-                parser_func: 解析函数
-                items_per_row: 每行的项目数量
-                
-            Returns:
-                list: 解析后的数据列表
-            """
-            data = []
-            while len(data) < count:
-                line = self.input_file.readline().strip()
-                if not line:
-                    continue
-                data.extend(parser_func(line))
-                
-            # 确保只返回所需数量的数据
-            return data[:count]
-        
-        # 读取[CONTROL]块
-        title = self.input_file.readline().strip()  # 读取[CONTROL]标题
-        jctr = int(self.input_file.readline().strip())
-        
-        if jctr == 1:
-            nact = int(self.input_file.readline().strip())
-            axy = np.zeros((10, 2), dtype=float)
-            act = np.zeros((10, 6), dtype=float)
-            
-            for i in range(nact):
-                axy[i] = parse_float_list(self.input_file.readline().strip())
-                act[i] = parse_float_list(self.input_file.readline().strip())
-            
-            # 调用函数合并外部荷载
-            force = self.init6(nact, axy, act)
-        
-        if jctr == 2:
-            pass  # 只计算整个桩基础的刚度
-        
-        if jctr == 3:
-            ino = int(self.input_file.readline().strip())
-        
-        # 读取块结束标记
-        tag = self.input_file.readline().strip()
-        
-        # 读取[ARRANGE]块
-        title = self.input_file.readline().strip()  # 读取[ARRANGE]标题
-        
-        # 读取桩数量信息
-        pnum, snum = parse_int_list(self.input_file.readline().strip())
-        
-        # 读取非模拟桩的位置坐标
-        coords_data = read_multi_line_data(pnum * 2, parse_float_list)
-        for k in range(pnum):
-            self.pxy[k, 0] = coords_data[k*2]
-            self.pxy[k, 1] = coords_data[k*2+1]
-        
-        # 读取模拟桩的位置坐标(如果有)
-        if snum > 0:
-            sim_coords_data = read_multi_line_data(snum * 2, parse_float_list)
-            for k in range(snum):
-                self.sxy[k, 0] = sim_coords_data[k*2]
-                self.sxy[k, 1] = sim_coords_data[k*2+1]
-        
-        # 读取块结束标记
-        tag = self.input_file.readline().strip()
-        
-        # 读取[NO_SIMU]块
-        title = self.input_file.readline().strip()  # 读取[NO_SIMU]标题
-        
-        # 读取控制信息
-        kctr_data = read_multi_line_data(pnum, parse_int_list)
-        for k in range(pnum):
-            self.kctr[k] = kctr_data[k]
-        
-        idf = self.init1(pnum, self.kctr)
-        
-        # 读取<0>段信息
-        stag = self.input_file.readline().strip()
-        if stag != "<0>":
-            raise ValueError(f"格式错误: 期望 <0>, 得到 {stag}")
-        
-        # 初始化<0>段信息
-        self.init2(0, pnum)
-        
-        # 读取控制信息不同的桩信息
-        for ik in range(1, idf):
-            line = self.input_file.readline().strip()
-            # 提取<>中的数字
-            match = None
-            if '<' in line and '>' in line:
-                try:
-                    match = int(line.split('<')[1].split('>')[0])
-                except (ValueError, IndexError):
-                    raise ValueError(f"格式错误: 无法解析 {line} 中的数字")
-            else:
-                raise ValueError(f"格式错误: 期望 <number>, 得到 {line}")
-            
-            im = match
-            
-            if im > 0:
-                # 读取指定控制信息的桩
-                self.init2(im, pnum)
-            elif im < 0:
-                # 读取需要修改的参数
-                jj = int(self.input_file.readline().strip())
-                sig = []
-                jnew = []
-                vnew = []
-                
-                for ia in range(jj):
-                    parts = self.input_file.readline().strip().split()
-                    sig.append(parts[0])
-                    jnew.append(int(parts[1]))
-                    vnew.append(float(parts[2]))
-                
-                # 修改指定控制信息的桩的参数
-                self.init4(im, jj, pnum, sig, jnew, vnew)
-        
-        # 读取块结束标记
-        tag = self.input_file.readline().strip()
-        
-        # 读取[SIMUPILE]块
-        title = self.input_file.readline().strip()  # 读取[SIMUPILE]标题
-        if snum > 0:
-            # 读取模拟桩控制信息
-            ksctr_data = read_multi_line_data(snum, parse_int_list)
-            for ks in range(snum):
-                self.ksctr[ks] = ksctr_data[ks]
-            
-            idf = self.init1(snum, self.ksctr)
-            is_val = pnum * 6
-            
-            for ik in range(idf):
-                line = self.input_file.readline().strip()
-                # 提取<>中的数字
-                match = None
-                if '<' in line and '>' in line:
-                    try:
-                        match = int(line.split('<')[1].split('>')[0])
-                    except (ValueError, IndexError):
-                        raise ValueError(f"格式错误: 无法解析 {line} 中的数字")
-                else:
-                    raise ValueError(f"格式错误: 期望 <number>, 得到 {line}")
-                
-                im = match
-                self.init5(im, is_val, snum)
-        
-        # 读取块结束标记
-        tag = self.input_file.readline().strip()
-        
-        # 计算桩地上和地下段长度
-        zfr = np.zeros(pnum, dtype=float)
-        zbl = np.zeros(pnum, dtype=float)
-        
-        for k in range(pnum):
-            zfr[k] = np.sum(self.hfr[k, :int(self.nfr[k])])
-            zbl[k] = np.sum(self.hbl[k, :int(self.nbl[k])])
-        
-        return jctr, ino, pnum, snum, force, zfr, zbl
+        # 非模拟桩信息
+        # self.pxy = np.zeros((self.N_max_pile, 2), dtype=float)  # 桩的坐标
+        # self.kctr = np.zeros(self.N_max_pile, dtype=int)        # 桩的控制信息
+        self.ksh = np.zeros(self.N_max_pile, dtype=int)         # 桩断面形状(0-圆形,1-方形)
+        self.ksu = np.zeros(self.N_max_pile, dtype=int)         # 桩底约束条件
+        self.agl = np.zeros((self.N_max_pile, 3), dtype=float)  # 桩的倾斜方向余弦
+        self.nfr = np.zeros(self.N_max_pile, dtype=int)         # 桩地上段段数
+        self.hfr = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地上段每段高度
+        self.dof = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地上段每段直径
+        self.nsf = np.zeros((self.N_max_pile, self.N_max_layer), dtype=int)   # 桩地上段计算分段数
+        self.nbl = np.zeros(self.N_max_pile, dtype=int)         # 桩地下段段数
+        self.hbl = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地下段每段高度
+        self.dob = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地下段每段直径
+        self.pmt = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地下段每段地基反力系数
+        self.pfi = np.zeros((self.N_max_pile, self.N_max_layer), dtype=float) # 桩地下段每段摩擦角
+        self.nsg = np.zeros((self.N_max_pile, self.N_max_layer), dtype=int)   # 桩地下段计算分段数
+        self.pmb = np.zeros(self.N_max_pile, dtype=float)       # 桩端土抗力系数
+        self.peh = np.zeros(self.N_max_pile, dtype=float)       # 桩材弹性模量
+        self.pke = np.zeros(self.N_max_pile, dtype=float)       # 桩材剪切模量与弹性模量比
 
-    def init1(self, pnum, kctr):
-        """计算控制信息不同的桩数"""
-        idf = 1
-        for k in range(1, pnum):
-            for ki in range(k):
-                if kctr[k] == kctr[ki]:
-                    break
-            else:
-                idf += 1
-        return idf
+        # 模拟桩信息
+        self.sxy = np.zeros((self.N_max_pile_simu, 2), dtype=float)    # 模拟桩坐标
+        # self.ksctr = np.zeros(self.N_max_pile_simu, dtype=int)         # 模拟桩控制信息
 
-    def init2(self, im, pnum):
-        """读取非模拟桩的<0>段信息"""
-        line = self.input_file.readline().strip().split()
-        ksh1 = int(line[0])
-        ksu1 = int(line[1])
-        agl1 = np.array([float(line[2]), float(line[3]), float(line[4])])
+        # 桩单元刚度
+        self.esp = np.zeros((self.N_max_pile**2, 6), dtype=float)
+        # control
+        self.jctr = Pile.control.jctr
+        if self.jctr == 1:
+            # JCTR = 1：执行完整分析
+            # 计算总荷载
+            self.force = self.calculate_total_force(Pile.control.force_points)
+        elif self.jctr == 2:
+            # JCTR = 2：仅计算整个桩基础的刚度矩阵
+            pass
+        elif self.jctr == 3:
+            # JCTR = 3：仅计算指定单桩的刚度矩阵
+            self.ino = Pile.control.ino
         
-        # 读取地上段信息
-        line = self.input_file.readline().strip().split()
-        nfr1 = int(line[0])
-        hfr1 = np.zeros(self.N_max_layer, dtype=float)
-        dof1 = np.zeros(self.N_max_layer, dtype=float)
-        nsf1 = np.zeros(self.N_max_layer, dtype=int)
+        # arrange - 设置桩的坐标信息
+        self.pxy = np.array([[coord.X, coord.Y] for coord in Pile.arrange.pile_coordinates])
+        if Pile.arrange.snum > 0:
+            self.sxy[:self.snum, :] = np.array([[coord.X, coord.Y] for coord in Pile.arrange.simu_pile_coordinates])
         
-        idx = 1
-        for i in range(nfr1):
-            # 检查是否有足够的元素
-            if idx + 2 >= len(line):
-                # 读取下一行获取更多数据
-                more_data = self.input_file.readline().strip().split()
-                line.extend(more_data)
+        # no_simu - 设置非模拟桩信息
+        # 读取KCTR
+        self.kctr[:self.pnum] = np.array(Pile.no_simu.no_simu.KCTR, dtype=int)
+        
+        all_pile_ids = Pile.no_simu.pile_types.keys()        
+        # 为每个桩填充信息
+        for k in range(self.pnum):
+            pile_type_id = self.kctr[k]
+            # 获取对应类型的桩信息
+            if pile_type_id in all_pile_ids:
+                pile_info = Pile.no_simu.pile_types[pile_type_id]
+                
+                # 设置桩基本信息
+                self.ksh[k] = pile_info.KSH
+                self.ksu[k] = pile_info.KSU
+                self.agl[k, :] = np.array(pile_info.AGL)
+                
+                # 设置地上段信息
+                self.nfr[k] = pile_info.NFR
+                for i in range(pile_info.NFR):
+                    section = pile_info.above_ground_sections[i]
+                    self.hfr[k, i] = section.HFR
+                    self.dof[k, i] = section.DOF
+                    self.nsf[k, i] = section.NSF
+                
+                # 设置地下段信息
+                self.nbl[k] = pile_info.NBL
+                for i in range(pile_info.NBL):
+                    section = pile_info.below_ground_sections[i]
+                    self.hbl[k, i] = section.HBL
+                    self.dob[k, i] = section.DOB
+                    self.pmt[k, i] = section.PMT
+                    self.pfi[k, i] = section.PFI
+                    self.nsg[k, i] = section.NSG
+                
+                # 设置桩底参数
+                self.pmb[k] = pile_info.PMB
+                self.peh[k] = pile_info.PEH
+                self.pke[k] = pile_info.PKE
+        
+        # simu_pile - 设置模拟桩信息
+        if self.snum > 0:
+            raise NotImplementedError("Simulated piles are not supported yet.")
+            # 读取KSCTR
+            self.ksctr[:self.snum] = np.array(Pile.simu_pile.simu_pile.KSCTR, dtype=int)
             
-            hfr1[i] = float(line[idx])
-            dof1[i] = float(line[idx+1])
-            nsf1[i] = int(line[idx+2])
-            idx += 3
-        
-        # 读取地下段信息
-        line = self.input_file.readline().strip().split()
-        nbl1 = int(line[0])
-        hbl1 = np.zeros(self.N_max_layer, dtype=float)
-        dob1 = np.zeros(self.N_max_layer, dtype=float)
-        pmt1 = np.zeros(self.N_max_layer, dtype=float)
-        pfi1 = np.zeros(self.N_max_layer, dtype=float)
-        nsg1 = np.zeros(self.N_max_layer, dtype=int)
-        
-        idx = 1
-        for i in range(nbl1):
-            # 检查是否有足够的元素
-            if idx + 4 >= len(line):
-                # 读取下一行获取更多数据
-                more_data = self.input_file.readline().strip().split()
-                line.extend(more_data)
+            # 为模拟桩单元刚度矩阵赋值
+            is_val = self.pnum * 6  # 初始索引
             
-            hbl1[i] = float(line[idx])
-            dob1[i] = float(line[idx+1])
-            pmt1[i] = float(line[idx+2])
-            pfi1[i] = float(line[idx+3])
-            nsg1[i] = int(line[idx+4])
-            idx += 5
-        
-        # 读取桩底参数
-        line = self.input_file.readline().strip().split()
-        if len(line) < 3:
-            # 如果这行数据不足，则读取下一行
-            more_data = self.input_file.readline().strip().split()
-            line.extend(more_data)
-        
-        pmb1 = float(line[0])
-        peh1 = float(line[1])
-        pke1 = float(line[2])
-        
-        # 将<0>段信息赋给对应控制信息的桩
-        for k in range(pnum):
-            ktest = self.init3(im, self.kctr[k])
-            if ktest == 0:
-                continue
-            
-            self.ksh[k] = ksh1
-            self.ksu[k] = ksu1
-            for ia in range(3):
-                self.agl[k, ia] = agl1[ia]
-            
-            self.nfr[k] = nfr1
-            for ii in range(nfr1):
-                self.hfr[k, ii] = hfr1[ii]
-                self.dof[k, ii] = dof1[ii]
-                self.nsf[k, ii] = nsf1[ii]
-            
-            self.nbl[k] = nbl1
-            for ii in range(nbl1):
-                self.hbl[k, ii] = hbl1[ii]
-                self.dob[k, ii] = dob1[ii]
-                self.pmt[k, ii] = pmt1[ii]
-                self.pfi[k, ii] = pfi1[ii]
-                self.nsg[k, ii] = nsg1[ii]
-            
-            self.pmb[k] = pmb1
-            self.peh[k] = peh1
-            self.pke[k] = pke1
-
-    def init3(self, im, k):
-        """测试IM值"""
-        ktest = 0
-        if im == 0 and k <= 0:
-            ktest = 1
-        if im >= 0 and k == im:
-            ktest = 1
-        return ktest
-
-    def init4(self, im, jj, pnum, sig, jnew, vnew):
-        """读取<-I>段信息并修改初始信息"""
-        # 找出所有控制信息为im的桩
-        nim = []
-        for k in range(pnum):
-            if self.kctr[k] == im:
-                nim.append(k)
-        
-        if not nim:
-            raise ValueError(f"格式错误: <{im}>")
-        
-        # 根据标识符修改对应的参数
-        for ia in range(jj):
-            if sig[ia] == "KSH=":
-                for k in nim:
-                    self.ksh[k] = int(vnew[ia])
-            elif sig[ia] == "KSU=":
-                for k in nim:
-                    self.ksu[k] = int(vnew[ia])
-            elif sig[ia] == "AGL=":
-                for k in nim:
-                    self.agl[k, jnew[ia]] = vnew[ia]
-            elif sig[ia] == "NFR=":
-                for k in nim:
-                    self.nfr[k] = int(vnew[ia])
-            elif sig[ia] == "HFR=":
-                for k in nim:
-                    self.hfr[k, jnew[ia]] = vnew[ia]
-            elif sig[ia] == "DOF=":
-                for k in nim:
-                    self.dof[k, jnew[ia]] = vnew[ia]
-            elif sig[ia] == "NSF=":
-                for k in nim:
-                    self.nsf[k, jnew[ia]] = int(vnew[ia])
-            elif sig[ia] == "NBL=":
-                for k in nim:
-                    self.nbl[k] = int(vnew[ia])
-            elif sig[ia] == "HBL=":
-                for k in nim:
-                    self.hbl[k, jnew[ia]] = vnew[ia]
-            elif sig[ia] == "DOB=":
-                for k in nim:
-                    self.dob[k, jnew[ia]] = vnew[ia]
-            elif sig[ia] == "PMT=":
-                for k in nim:
-                    self.pmt[k, jnew[ia]] = vnew[ia]
-            elif sig[ia] == "PFI=":
-                for k in nim:
-                    self.pfi[k, jnew[ia]] = vnew[ia]
-            elif sig[ia] == "NSG=":
-                for k in nim:
-                    self.nsg[k, jnew[ia]] = int(vnew[ia])
-            elif sig[ia] == "PMB=":
-                for k in nim:
-                    self.pmb[k] = vnew[ia]
-            elif sig[ia] == "PEH=":
-                for k in nim:
-                    self.peh[k] = vnew[ia]
-            elif sig[ia] == "PKE=":
-                for k in nim:
-                    self.pke[k] = vnew[ia]
-            else:
-                raise ValueError(f"格式错误: <{im}>")
-
-    def init5(self, im, is_val, snum):
-        """读取模拟桩信息"""
-        if im < 0:
-            # 读取对角元素
-            line = self.input_file.readline().strip().split()
-            # 处理可能的多行数据
-            while len(line) < 6:
-                more_data = self.input_file.readline().strip().split()
-                line.extend(more_data)
-            
-            a = np.array([float(line[i]) for i in range(6)])
-            
-            for k in range(snum):
-                if self.ksctr[k] == im:
+            for k in range(self.snum):
+                pile_type_id = self.ksctr[k]
+                
+                # 如果是负值模式（对角元素模式）
+                if pile_type_id < 0 and abs(pile_type_id) in Pile.simu_pile.simu_pile.pile_types:
+                    # 获取对角元素，这里假设是直接存储在pile_types中
+                    diagonal_values = Pile.simu_pile.simu_pile.pile_types[abs(pile_type_id)]
+                    
+                    # 设置对角元素（每个自由度一个刚度值）
                     for ia in range(6):
                         is_val += 1
                         for ib in range(6):
                             self.esp[is_val, ib] = 0.0
-                        self.esp[is_val, ia] = a[ia]
-        
-        if im > 0:
-            # 读取完整刚度矩阵
-            b = np.zeros((6, 6), dtype=float)
-            for ia in range(6):
-                line = self.input_file.readline().strip().split()
-                # 处理可能的多行数据
-                while len(line) < 6:
-                    more_data = self.input_file.readline().strip().split()
-                    line.extend(more_data)
+                        # 设置对角元素
+                        if hasattr(diagonal_values, f'K{ia+1}'):  # 假设对角元素命名为K1, K2, ..., K6
+                            self.esp[is_val, ia] = getattr(diagonal_values, f'K{ia+1}')
                 
-                for ib in range(6):
-                    b[ia, ib] = float(line[ib])
+                # 如果是正值模式（完整刚度矩阵模式）
+                elif pile_type_id > 0 and pile_type_id in Pile.simu_pile.simu_pile.pile_types:
+                    # 获取完整刚度矩阵
+                    stiffness_matrix = Pile.simu_pile.simu_pile.pile_types[pile_type_id]
+                    
+                    # 设置完整刚度矩阵（6x6）
+                    if hasattr(stiffness_matrix, 'matrix'):  # 假设完整矩阵存储在matrix属性中
+                        matrix = stiffness_matrix.matrix
+                        for ia in range(6):
+                            is_val += 1
+                            for ib in range(6):
+                                self.esp[is_val, ib] = matrix[ia][ib]
+        
+        # 计算桩地上和地下段总长度
+        self.zfr = np.zeros(self.pnum, dtype=float)
+        self.zbl = np.zeros(self.pnum, dtype=float)
+        
+        for k in range(self.pnum):
+            self.zfr[k] = np.sum(self.hfr[k, :int(self.nfr[k])])
+            self.zbl[k] = np.sum(self.hbl[k, :int(self.nbl[k])])
+
+    def read_dat(self, file_path: Path = "*.dat") -> PileModel:
+        """读取初始结构数据
+        
+        Args:
+            file_path: 输入文件路径
+            force: 外部荷载数组
             
-            for k in range(snum):
-                if self.ksctr[k] == im:
-                    for ia in range(6):
-                        is_val += 1
-                        for ib in range(6):
-                            self.esp[is_val, ib] = b[ia, ib]
-
-    def init6(self, nact, axy, act):
-        """组合外部荷载"""
-        force = np.zeros(6, dtype=float)
+        Returns:
+            PileModel: 解析后的桩基础数据
+        """
         
-        for i in range(nact):
-            a = act[i, :]
-            tu = self.tmatx(axy[i, 0], axy[i, 1])
-            tn = tu.T
-            b = np.dot(tn, a)
-            force += b
+        with open(file_path, 'r') as self.input_file:
+            input_text = self.input_file.read()
+            self.Pile = PileModel(input_text=input_text)
+            
+        self.init_parameters(self.Pile)
+        return self.Pile
         
-        return force
-
     def btxy(self, pnum, zfr, zbl, btx, bty):
         """计算桩的变形系数"""
         # 计算桩在地面处的坐标
@@ -1117,12 +808,11 @@ this program, please do not hesitate to write to :
         
         return tu
 
-    def disp(self, jctr, ino, pnum, snum, force, duk, so):
-        """计算桩基础帽的位移"""
-        # 计算整个桩基础的刚度
-        so.fill(0.0)
-        
-        for k in range(pnum + snum):
+    @property
+    def K(self):
+        """计算桩基础帽的刚度"""
+        K = np.zeros((6, 6), dtype=float)
+        for k in range(self.pnum + self.snum):
             # 获取桩的单元刚度
             a = np.zeros((6, 6), dtype=float)
             for i in range(6):
@@ -1130,7 +820,7 @@ this program, please do not hesitate to write to :
                     a[i, j] = self.esp[(k-1)*6+i, j]
             
             # 应用转换矩阵
-            if k < pnum:
+            if k < self.pnum:
                 # 非模拟桩需要考虑倾斜方向
                 tk = np.zeros((6, 6), dtype=float)
                 self.trnsfr(self.agl[k, 0], self.agl[k, 1], self.agl[k, 2], tk)
@@ -1142,8 +832,8 @@ this program, please do not hesitate to write to :
                 y = self.pxy[k, 1]
             else:
                 # 模拟桩
-                x = self.sxy[k-pnum, 0]
-                y = self.sxy[k-pnum, 1]
+                x = self.sxy[k-self.pnum, 0]
+                y = self.sxy[k-self.pnum, 1]
             
             # 应用位置转换矩阵
             tu = np.zeros((6, 6), dtype=float)
@@ -1153,7 +843,13 @@ this program, please do not hesitate to write to :
             a = np.dot(tn, b)
             
             # 累加到整体刚度矩阵
-            so += a
+            K += a
+        return K
+
+    def disp(self, jctr, ino, pnum, snum, force, duk, so):
+        """计算桩基础帽的位移"""
+        # 计算整个桩基础的刚度
+        K = self.K
         
         # 只计算指定桩的刚度
         if jctr == 3:
@@ -1161,18 +857,18 @@ this program, please do not hesitate to write to :
             for i in range(6):
                 line = "       " + " ".join([f"{self.esp[(ino-1)*6+i, j]:12.4e}" for j in range(6)])
                 self.output_file.write(line + "\n")
-            return so
+            return K
         
         # 只计算整个桩基础的刚度
         if jctr == 2:
             self.output_file.write("\n\n       *** Stiffness of the entire pile foundation ***\n\n")
             for i in range(6):
-                line = "       " + " ".join([f"{so[i, j]:12.4e}" for j in range(6)])
+                line = "       " + " ".join([f"{K[i, j]:12.4e}" for j in range(6)])
                 self.output_file.write(line + "\n")
-            return so
+            return K
         
         # 求解位移
-        force = np.linalg.solve(so, force)
+        force = np.linalg.solve(K, force)
         
         # 输出位移结果
         self.output_file.write("\n       *****************************************************************************************************\n")
@@ -1202,7 +898,7 @@ this program, please do not hesitate to write to :
             for i in range(6):
                 duk[k, i] = c[i]
         
-        return so
+        return K
 
     def run(self):
         """运行程序的主函数"""
@@ -1228,10 +924,7 @@ this program, please do not hesitate to write to :
         
         # 初始化数据
         print("       *** To read input information ***\n")
-        jctr = 0
-        ino = 0
-        force = np.zeros(6, dtype=float)
-        jctr, ino, pnum, snum, force, zfr, zbl = self.r_data(jctr, ino, force)
+        self.read_dat()
         
         # 执行计算流程 (使用拆分到calculation文件夹的计算模块)
         so = run_calculation(self, jctr, ino, pnum, snum, force, zfr, zbl)
@@ -1242,7 +935,28 @@ this program, please do not hesitate to write to :
         self.pos_file.close()
         
         print("\n程序运行完成，结果已保存到 %s 和 %s 文件中。" % (output_filename, pos_filename))
+    
+    def stiffness(self):
+        """计算桩基础的刚度"""
+        # 计算桩的变形因子
+        print("\n\n       *** To calculate deformation factors of piles ***")
+        btx = np.zeros((self.pnum, self.N_max_layer), dtype=float)
+        bty = np.zeros((self.pnum, self.N_max_layer), dtype=float)
+        self.btxy(self.pnum, self.zfr, self.zbl, btx, bty)
+        
+        # 计算桩底面积和轴向刚度
+        print("\n\n       *** To calculate axis stiffness of piles ***")
+        ao = np.zeros(self.pnum, dtype=float)
+        self.area(self.pnum, self.zfr, self.zbl, ao)
+        rzz = np.zeros(self.pnum, dtype=float)
+        self.stiff_n(self.pnum, self.zfr, self.zbl, ao, rzz)
+        
+        # 计算桩的侧向刚度
+        print("\n\n       *** To calculate lateral stiffness of piles ***")
+        self.pstiff(self.pnum, rzz, btx, bty)
 
 if __name__ == "__main__":
-    bcad = BCADPile(N_max_layer=50)
-    bcad.run()
+    pile = PileManager()
+    pile.read_dat(Path("tests/Test-1-2.dat"))
+    pile.stiffness()
+    print(pile.K)

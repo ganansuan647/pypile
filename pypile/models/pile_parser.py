@@ -1,8 +1,8 @@
 from pydantic_core.core_schema import model_field
-from arrange_model import parse_arrange_text, ArrangeInfoModel
-from simu_pile_model import parse_simu_pile_text, SimuPileInfoModel
-from no_simu_model import parse_no_simu_text, NoSimuInfoModel
-from control_model import parse_control_text, ControlModel
+from .arrange_model import parse_arrange_text, ArrangeInfoModel
+from .simu_pile_model import parse_simu_pile_text, SimuPileInfoModel
+from .no_simu_model import parse_no_simu_text, NoSimuInfoModel
+from .control_model import parse_control_text, ControlModel
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Dict, Any
@@ -95,7 +95,8 @@ class PileModel(BaseModel):
             "simu_pile": simu_pile
         }
 
-
+def parse_pile_text(input_text: str) -> PileModel:
+    return PileModel(input_text=input_text)
 
 if __name__ == "__main__":
     test_input = """
