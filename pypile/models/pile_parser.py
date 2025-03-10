@@ -24,7 +24,7 @@ class PileModel(BaseModel):
             raise ValueError("输入不能为空")
         
         # 获取name字段，如果存在的话
-        name = data.get('name', "new_pile_foundation")
+        name = data.get('name', "")
         
         # 如果[CONTRAL] 或 [CONTROL]标签不存在,报错
         if not re.search(r'\[\s*(?:CONTROL|CONTRAL)\s*\]', raw_input, re.IGNORECASE | re.DOTALL):

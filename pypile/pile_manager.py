@@ -10,14 +10,24 @@ import numpy as np
 import math
 from pathlib import Path
 from calculation.process import run_calculation
+from loguru import logger
 
 from models import PileModel
 
 __version__ = "0.1.0"
 
 class PileManager:
-    def __init__(self
-                 ):
+    def __init__(self, debug: bool = False):
+        self.debug: bool = debug
+        # 配置日志系统
+        if debug:
+            # debug 模式下输出日志文件和控制台信息
+            logger.add("pypile.log", level="DEBUG")
+            logger.info("Debug mode enabled, detailed logs will be written to pypile.log")
+        else:
+            # 非 debug 模式下只保留控制台 WARNING 及以上级别的信息
+            logger.remove()  # 移除默认处理器
+            logger.add(lambda msg: print(msg, end=""), level="WARNING")  # 只在控制台输出警告及以上级别
         # 输入输出文件
         self.input_file = None
         self.output_file = None
@@ -88,6 +98,7 @@ this program, please do not hesitate to write to :
     def init_parameters(self, Pile: PileModel):
         """初始化参数"""
         self.Pile = Pile
+        logger.debug(f"Initializing parameters for {Pile.name}...")
         # 初始化参数
         self.pnum = Pile.arrange.PNUM   # 非模拟桩数量，来自 arrange模块
         self.snum = Pile.arrange.SNUM   # 模拟桩数量，来自 arrange模块
@@ -96,8 +107,6 @@ this program, please do not hesitate to write to :
         self.N_max_calc_points = max(sum(layer.NSF for layer in pile_type.above_ground_sections)+sum(layer.NSG for layer in pile_type.below_ground_sections) for pile_type in Pile.no_simu.pile_types.values())
         
         # 非模拟桩信息
-        # self.pxy = np.zeros((self.N_max_pile, 2), dtype=float)  # 桩的坐标
-        # self.kctr = np.zeros(self.N_max_pile, dtype=int)        # 桩的控制信息
         self.ksh = np.zeros(self.N_max_pile, dtype=int)         # 桩断面形状(0-圆形,1-方形)
         self.ksu = np.zeros(self.N_max_pile, dtype=int)         # 桩底约束条件
         self.agl = np.zeros((self.N_max_pile, 3), dtype=float)  # 桩的倾斜方向余弦
@@ -223,6 +232,8 @@ this program, please do not hesitate to write to :
             self.zfr[k] = np.sum(self.hfr[k, :int(self.nfr[k])])
             self.zbl[k] = np.sum(self.hbl[k, :int(self.nbl[k])])
 
+        logger.opt(colors=True).info(f"Parameters initialized for <green>{Pile.name}</green>")
+
     def read_dat(self, file_path: Path = "*.dat") -> PileModel:
         """读取初始结构数据
         
@@ -237,12 +248,14 @@ this program, please do not hesitate to write to :
         with open(file_path, 'r') as self.input_file:
             input_text = self.input_file.read()
             self.Pile = PileModel(input_text=input_text)
-            
+            if not self.Pile.name:
+                self.Pile.name = file_path.stem
         self.init_parameters(self.Pile)
         return self.Pile
         
     def btxy(self) -> tuple[np.ndarray, np.ndarray]:
         """计算桩的变形系数"""
+        logger.debug("Calculating deformation factors of piles...")
         # 初始化变形系数
         self.btx = np.zeros((self.pnum, self.N_max_layer), dtype=float)
         self.bty = np.zeros((self.pnum, self.N_max_layer), dtype=float)
@@ -303,6 +316,7 @@ this program, please do not hesitate to write to :
                     a, b = self.eaj(self.ksh[k], self.pke[k], self.dob[k, ia])
                     self.btx[k, ia] = (self.pmt[k, ia] * bx1 / (self.peh[k] * b))**0.2
                     self.bty[k, ia] = (self.pmt[k, ia] * by1 / (self.peh[k] * b))**0.2
+        logger.success("Deformation factors of piles calculated!")
         return self.btx, self.bty
 
     def kinf1(self, im, pnum, dob, zbl, gxy, kinf, idx):
@@ -468,6 +482,7 @@ this program, please do not hesitate to write to :
             else:  # 方形
                 self.ao[k] = w[k]**2
 
+        logger.debug("Pile bottom areas calculated!")
         return self.ao
 
     def stn(self, k, zbl_k, ao_k, rzz):
@@ -517,7 +532,7 @@ this program, please do not hesitate to write to :
         """计算每个桩的轴向刚度"""
         if not hasattr(self,'ao'):
             self.area()
-
+        logger.debug("Calculating axial stiffness of piles...")
         # 初始化轴向刚度数组
         self.rzz = np.zeros(self.pnum, dtype=float)
         
@@ -534,7 +549,7 @@ this program, please do not hesitate to write to :
             else:
                 # 计算新桩的轴向刚度
                 self.stn(k, self.zbl[k], self.ao[k], self.rzz[k:k+1])
-
+        logger.success("Axial stiffness of piles calculated!")
         return self.rzz
 
     def rltfr(self, nfr, ej, hfr, kfr):
@@ -645,6 +660,7 @@ this program, please do not hesitate to write to :
         if not hasattr(self,'btx') or not hasattr(self,'bty'):
             self.btxy()
 
+        logger.debug("Calculating lateral stiffness of piles...")
         # 桩单元刚度
         self.esp = np.zeros((self.N_max_pile**2, 6), dtype=float)
         
@@ -706,7 +722,8 @@ this program, please do not hesitate to write to :
             for i in range(6):
                 for j in range(6):
                     self.esp[(k-1)*6+i, j] = ke[i, j]
-            
+        
+        logger.success("Lateral stiffness of piles calculated!")
         return self.esp
 
     def rltmtx(self, nbl, bt1, bt2, ej, h, kbx, kby):
@@ -838,6 +855,9 @@ this program, please do not hesitate to write to :
     @property
     def K(self):
         """计算桩基础帽的刚度"""
+        if not hasattr(self, 'esp'):
+            self.pstiff()
+
         K = np.zeros((6, 6), dtype=float)
         for k in range(self.pnum + self.snum):
             # 获取桩的单元刚度
@@ -962,28 +982,15 @@ this program, please do not hesitate to write to :
         self.pos_file.close()
         
         print("\n程序运行完成，结果已保存到 %s 和 %s 文件中。" % (output_filename, pos_filename))
-    
-    def stiffness(self):
-        """计算桩基础的刚度"""
-        # 计算桩的变形因子
-        print("\n\n       *** To calculate deformation factors of piles ***")
-        
-        btx, bty = self.btxy()
-        
-        # 计算桩底面积和轴向刚度
-        print("\n\n       *** To calculate axis stiffness of piles ***")
-        ao = self.area()
-        rzz = self.stiff_n()
-        
-        # 计算桩的侧向刚度
-        print("\n\n       *** To calculate lateral stiffness of piles ***")
-        self.pstiff()
 
 if __name__ == "__main__":
-    pile = PileManager()
+    pile = PileManager(debug = True)
     pile.read_dat(Path("tests/Test-1-2.dat"))
-    pile.stiffness()
-    print(pile.K)
+    
+    np.set_printoptions(linewidth=200, precision=2, suppress=True)
+    print(f"Pile stiffness matrix K:\n{pile.K}")
+    np.set_printoptions()  # Reset to default
+
     np.testing.assert_allclose(pile.K, [
         [ 3.75361337e+06,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 1.65098740e+07,  0.00000000e+00],
         [ 0.00000000e+00,  3.68517766e+06,  0.00000000e+00, -1.63086648e+07, 0.00000000e+00,  6.98491931e-10],
