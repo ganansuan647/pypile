@@ -958,5 +958,4 @@ if __name__ == "__main__":
     pile = PileManager()
     pile.read_dat(Path("tests/Test-1-2.dat"))
     pile.stiffness()
-    from rich import print
     print(pile.K)

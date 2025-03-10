@@ -174,7 +174,7 @@ class NoSimuInfoModel(BaseModel):
             agl = values[2:5]
             
             # 解析地上桩段
-            values = list(map(float, re.findall(r'-?\d+\.?\d*(?:[eE][+-]?\d+)?', pile_data.split('\n')[1]))) # 必须在第二行
+            values = list(map(float, re.findall(r'-?\d+\.?\d*(?:[eE][+-]?\d+)?', '\n'.join(pile_data.split('\n')[1:])))) # 必须在第二行
             nfr = int(values[0])
             idx = 1
             above_ground_sections = []
@@ -190,7 +190,7 @@ class NoSimuInfoModel(BaseModel):
             
             # 解析地下桩段
             # 如果地上段有nfr个桩段，则地下段从nfr+1开始
-            values = list(map(float, re.findall(r'-?\d+\.?\d*(?:[eE][+-]?\d+)?', '\n'.join(pile_data.split('\n')[2+idx//3:])))) # 必须在第三+idx//3行及以后
+            values = list(map(float, re.findall(r'-?\d+\.?\d*(?:[eE][+-]?\d+)?', '\n'.join(pile_data.split('\n')[1 + nfr + (nfr == 0):])))) # 必须在第1 + nfr + (nfr == 0)行及以后
             nbl = int(values[0])
             idx = 1
             below_ground_sections = []
@@ -280,6 +280,17 @@ if __name__ == "__main__":
 5000 3e7 1
 end
     """
+
+    input_text = """
+        [NO_SIMU]
+        4
+        <4>
+        0 2 0.0 0.0 1.0
+        0
+        1 10.0 1.0 30000.0 30.0 3
+        5000 3e7 1
+        END;
+        """
     
     model = parse_no_simu_text(input_text)
     print(f"KCTR({model.no_simu.model_fields['KCTR'].description}): {model.no_simu.KCTR}")
