@@ -118,8 +118,6 @@ this program, please do not hesitate to write to :
         # 模拟桩信息
         self.sxy = np.zeros((self.snum, 2), dtype=float)    # 模拟桩坐标
 
-        # 桩单元刚度
-        self.esp = np.zeros((self.N_max_pile**2, 6), dtype=float)
         # control
         self.jctr = Pile.control.JCTR
         if self.jctr == 1:
@@ -243,39 +241,43 @@ this program, please do not hesitate to write to :
         self.init_parameters(self.Pile)
         return self.Pile
         
-    def btxy(self, pnum, zfr, zbl, btx, bty):
+    def btxy(self) -> tuple[np.ndarray, np.ndarray]:
         """计算桩的变形系数"""
+        # 初始化变形系数
+        self.btx = np.zeros((self.pnum, self.N_max_layer), dtype=float)
+        self.bty = np.zeros((self.pnum, self.N_max_layer), dtype=float)
+        
         # 计算桩在地面处的坐标
-        gxy = np.zeros((pnum, 2), dtype=float)
-        for k in range(pnum):
-            gxy[k, 0] = self.pxy[k, 0] + zfr[k] * self.agl[k, 0]
-            gxy[k, 1] = self.pxy[k, 1] + zfr[k] * self.agl[k, 1]
+        gxy = np.zeros((self.pnum, 2), dtype=float)
+        for k in range(self.pnum):
+            gxy[k, 0] = self.pxy[k, 0] + self.zbl[k] * self.agl[k, 0]
+            gxy[k, 1] = self.pxy[k, 1] + self.zbl[k] * self.agl[k, 1]
         
         # 计算桩间距
-        for k in range(pnum):
-            for k1 in range(k+1, pnum):
+        for k in range(self.pnum):
+            for k1 in range(k+1, self.pnum):
                 s = np.sqrt((gxy[k, 0] - gxy[k1, 0])**2 + (gxy[k, 1] - gxy[k1, 1])**2) - (self.dob[k, 0] + self.dob[k1, 0]) / 2.0
                 if s < 1.0:
                     # 桩间距小于1m，调用kinf1函数
                     kinf = np.zeros(2, dtype=float)
-                    self.kinf1(0, pnum, self.dob, zbl, gxy, kinf, 0)
-                    self.kinf1(1, pnum, self.dob, zbl, gxy, kinf, 1)
+                    self.kinf1(0, self.pnum, self.dob, self.zbl, gxy, kinf, 0)
+                    self.kinf1(1, self.pnum, self.dob, self.zbl, gxy, kinf, 1)
                     break
         else:
             # 桩间距大于1m，调用kinf2函数
             kinf = np.zeros(2, dtype=float)
-            self.kinf2(0, pnum, self.dob, zbl, gxy, kinf, 0)
-            self.kinf2(1, pnum, self.dob, zbl, gxy, kinf, 1)
+            self.kinf2(0, self.pnum, self.dob, self.zbl, gxy, kinf, 0)
+            self.kinf2(1, self.pnum, self.dob, self.zbl, gxy, kinf, 1)
         
         # 计算每个桩的变形系数
-        for k in range(pnum):
+        for k in range(self.pnum):
             if k > 0:
                 # 检查是否有相同控制信息的桩，如果有则复制变形系数
                 for k1 in range(k):
                     if self.kctr[k] == self.kctr[k1]:
                         for ia in range(int(self.nbl[k1])):
-                            btx[k, ia] = btx[k1, ia]
-                            bty[k, ia] = bty[k1, ia]
+                            self.btx[k, ia] = self.btx[k1, ia]
+                            self.bty[k, ia] = self.bty[k1, ia]
                         break
                 else:
                     # 计算新桩的变形系数
@@ -287,8 +289,8 @@ this program, please do not hesitate to write to :
                         bx1 = ka * kinf[0] * (self.dob[k, ia] + 1.0)
                         by1 = ka * kinf[1] * (self.dob[k, ia] + 1.0)
                         a, b = self.eaj(self.ksh[k], self.pke[k], self.dob[k, ia])
-                        btx[k, ia] = (self.pmt[k, ia] * bx1 / (self.peh[k] * b))**0.2
-                        bty[k, ia] = (self.pmt[k, ia] * by1 / (self.peh[k] * b))**0.2
+                        self.btx[k, ia] = (self.pmt[k, ia] * bx1 / (self.peh[k] * b))**0.2
+                        self.bty[k, ia] = (self.pmt[k, ia] * by1 / (self.peh[k] * b))**0.2
             else:
                 # 计算第一个桩的变形系数
                 ka = 1.0
@@ -299,8 +301,9 @@ this program, please do not hesitate to write to :
                     bx1 = ka * kinf[0] * (self.dob[k, ia] + 1.0)
                     by1 = ka * kinf[1] * (self.dob[k, ia] + 1.0)
                     a, b = self.eaj(self.ksh[k], self.pke[k], self.dob[k, ia])
-                    btx[k, ia] = (self.pmt[k, ia] * bx1 / (self.peh[k] * b))**0.2
-                    bty[k, ia] = (self.pmt[k, ia] * by1 / (self.peh[k] * b))**0.2
+                    self.btx[k, ia] = (self.pmt[k, ia] * bx1 / (self.peh[k] * b))**0.2
+                    self.bty[k, ia] = (self.pmt[k, ia] * by1 / (self.peh[k] * b))**0.2
+        return self.btx, self.bty
 
     def kinf1(self, im, pnum, dob, zbl, gxy, kinf, idx):
         """计算影响系数 - 桩间距小于1m的情况"""
@@ -414,16 +417,20 @@ this program, please do not hesitate to write to :
         else:  # in_val >= 4
             return 0.45
 
-    def area(self, pnum, zfr, zbl, ao):
+    def area(self):
         """计算桩底面积"""
-        # 计算桩底坐标
-        bxy = np.zeros((pnum, 2), dtype=float)
-        w = np.zeros(pnum, dtype=float)
-        smin = np.ones(pnum, dtype=float) * 100.0
+
+        # 初始化桩底面积数组
+        self.ao = np.zeros(self.pnum, dtype=float)
         
-        for k in range(pnum):
-            bxy[k, 0] = self.pxy[k, 0] + (zfr[k] + zbl[k]) * self.agl[k, 0]
-            bxy[k, 1] = self.pxy[k, 1] + (zfr[k] + zbl[k]) * self.agl[k, 1]
+        # 计算桩底坐标
+        bxy = np.zeros((self.pnum, 2), dtype=float)
+        w = np.zeros(self.pnum, dtype=float)
+        smin = np.ones(self.pnum, dtype=float) * 100.0
+        
+        for k in range(self.pnum):
+            bxy[k, 0] = self.pxy[k, 0] + (self.zfr[k] + self.zbl[k]) * self.agl[k, 0]
+            bxy[k, 1] = self.pxy[k, 1] + (self.zfr[k] + self.zbl[k]) * self.agl[k, 1]
             
             if self.ksu[k] > 2:
                 if self.nbl[k] != 0:
@@ -443,8 +450,8 @@ this program, please do not hesitate to write to :
             w[k] = w[k] * 2 + self.dob[k, 0]
         
         # 计算桩间最小距离
-        for k in range(pnum):
-            for ia in range(k+1, pnum):
+        for k in range(self.pnum):
+            for ia in range(k+1, self.pnum):
                 s = math.sqrt((bxy[k, 0] - bxy[ia, 0])**2 + (bxy[k, 1] - bxy[ia, 1])**2)
                 if s < smin[k]:
                     smin[k] = s
@@ -452,14 +459,16 @@ this program, please do not hesitate to write to :
                     smin[ia] = s
         
         # 确定使用最小宽度并计算桩底面积
-        for k in range(pnum):
+        for k in range(self.pnum):
             if smin[k] < w[k]:
                 w[k] = smin[k]
             
             if self.ksh[k] == 0:  # 圆形
-                ao[k] = math.pi * w[k]**2 / 4.0
+                self.ao[k] = math.pi * w[k]**2 / 4.0
             else:  # 方形
-                ao[k] = w[k]**2
+                self.ao[k] = w[k]**2
+
+        return self.ao
 
     def stn(self, k, zbl_k, ao_k, rzz):
         """计算单桩轴向刚度"""
@@ -504,21 +513,29 @@ this program, please do not hesitate to write to :
         
         return a, b
 
-    def stiff_n(self, pnum, zfr, zbl, ao, rzz):
+    def stiff_n(self):
         """计算每个桩的轴向刚度"""
+        if not hasattr(self,'ao'):
+            self.area()
+
+        # 初始化轴向刚度数组
+        self.rzz = np.zeros(self.pnum, dtype=float)
+        
         # 计算第一个桩的轴向刚度
-        self.stn(0, zbl[0], ao[0], rzz[0:1])
+        self.stn(0, self.zbl[0], self.ao[0], self.rzz[0:1])
         
         # 计算其他桩的轴向刚度
-        for k in range(1, pnum):
+        for k in range(1, self.pnum):
             # 检查是否有相同控制信息和底面积的桩
             for ia in range(k):
-                if self.kctr[k] == self.kctr[ia] and ao[k] == ao[ia]:
-                    rzz[k] = rzz[ia]
+                if self.kctr[k] == self.kctr[ia] and self.ao[k] == self.ao[ia]:
+                    self.rzz[k] = self.rzz[ia]
                     break
             else:
                 # 计算新桩的轴向刚度
-                self.stn(k, zbl[k], ao[k], rzz[k:k+1])
+                self.stn(k, self.zbl[k], self.ao[k], self.rzz[k:k+1])
+
+        return self.rzz
 
     def rltfr(self, nfr, ej, hfr, kfr):
         """计算桩地上段的关系矩阵"""
@@ -620,9 +637,18 @@ this program, please do not hesitate to write to :
             for j in range(3):
                 tk[i+3, j+3] = tk[i, j]
 
-    def pstiff(self, pnum, rzz, btx, bty):
+    def pstiff(self):
         """计算桩单元刚度"""
-        for k in range(pnum):
+        if not hasattr(self,'rzz'):
+            self.rzz = self.stiff_n()
+        
+        if not hasattr(self,'btx') or not hasattr(self,'bty'):
+            self.btxy()
+
+        # 桩单元刚度
+        self.esp = np.zeros((self.N_max_pile**2, 6), dtype=float)
+        
+        for k in range(self.pnum):
             # 如果桩无地下段，使用单位矩阵
             if self.nbl[k] == 0:
                 kbx = np.eye(4)
@@ -636,8 +662,8 @@ this program, please do not hesitate to write to :
                 
                 h[0] = 0.0
                 for ia in range(int(self.nbl[k])):
-                    bt1[ia] = btx[k, ia]
-                    bt2[ia] = bty[k, ia]
+                    bt1[ia] = self.btx[k, ia]
+                    bt2[ia] = self.bty[k, ia]
                     a, b = self.eaj(self.ksh[k], self.pke[k], self.dob[k, ia])
                     ej[ia] = self.peh[k] * b
                     h[ia+1] = h[ia] + self.hbl[k, ia]
@@ -674,12 +700,14 @@ this program, please do not hesitate to write to :
             
             # 计算考虑边界条件的桩单元刚度
             ke = np.zeros((6, 6), dtype=float)
-            self.cndtn(self.ksu[k], kx, ky, rzz[k], ke)
+            self.cndtn(self.ksu[k], kx, ky, self.rzz[k], ke)
             
             # 保存桩的单元刚度
             for i in range(6):
                 for j in range(6):
                     self.esp[(k-1)*6+i, j] = ke[i, j]
+            
+        return self.esp
 
     def rltmtx(self, nbl, bt1, bt2, ej, h, kbx, kby):
         """计算桩地下段的关系矩阵"""
@@ -939,23 +967,28 @@ this program, please do not hesitate to write to :
         """计算桩基础的刚度"""
         # 计算桩的变形因子
         print("\n\n       *** To calculate deformation factors of piles ***")
-        btx = np.zeros((self.pnum, self.N_max_layer), dtype=float)
-        bty = np.zeros((self.pnum, self.N_max_layer), dtype=float)
-        self.btxy(self.pnum, self.zfr, self.zbl, btx, bty)
+        
+        btx, bty = self.btxy()
         
         # 计算桩底面积和轴向刚度
         print("\n\n       *** To calculate axis stiffness of piles ***")
-        ao = np.zeros(self.pnum, dtype=float)
-        self.area(self.pnum, self.zfr, self.zbl, ao)
-        rzz = np.zeros(self.pnum, dtype=float)
-        self.stiff_n(self.pnum, self.zfr, self.zbl, ao, rzz)
+        ao = self.area()
+        rzz = self.stiff_n()
         
         # 计算桩的侧向刚度
         print("\n\n       *** To calculate lateral stiffness of piles ***")
-        self.pstiff(self.pnum, rzz, btx, bty)
+        self.pstiff()
 
 if __name__ == "__main__":
     pile = PileManager()
     pile.read_dat(Path("tests/Test-1-2.dat"))
     pile.stiffness()
     print(pile.K)
+    np.testing.assert_allclose(pile.K, [
+        [ 3.75361337e+06,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 1.65098740e+07,  0.00000000e+00],
+        [ 0.00000000e+00,  3.68517766e+06,  0.00000000e+00, -1.63086648e+07, 0.00000000e+00,  6.98491931e-10],
+        [ 0.00000000e+00,  0.00000000e+00,  3.40590554e+07,  0.00000000e+00, 1.86264515e-09,  0.00000000e+00],
+        [ 0.00000000e+00, -1.62731362e+07,  0.00000000e+00,  4.64474149e+09, 0.00000000e+00, -2.79396772e-09],
+        [ 1.64737208e+07,  0.00000000e+00,  1.86264515e-09,  0.00000000e+00, 5.76996816e+08,  0.00000000e+00],
+        [ 0.00000000e+00,  6.98491931e-10,  0.00000000e+00, -9.31322575e-10, 0.00000000e+00,  5.72172846e+08]
+    ], rtol=1e-5, atol=1e-8)
