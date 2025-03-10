@@ -63,7 +63,7 @@ class PileManager:
                 bordered.append(f"|{vertical_padding}{line:<{width}}{vertical_padding}|")
             
             # 添加版本信息、版权声明和修改人信息到最后一行
-            copyright_info = f"Version:{version}, ©{datetime.datetime.now().year}"
+            copyright_info = f"Version:{version}, {datetime.datetime.now().year}"
             bordered.append(f"|{vertical_padding}{' ':<{width-len(copyright_info)}}{copyright_info}{vertical_padding}|")
             author_info = "By: Lingyun Gou"
             bordered.append(f"|{vertical_padding}{' ':<{width-len(author_info)}}{author_info}{vertical_padding}|")
@@ -125,7 +125,11 @@ class PileManager:
         self.snum = Pile.arrange.SNUM   # 模拟桩数量，来自 arrange模块
         self.N_max_pile = self.pnum + self.snum
         self.N_max_layer = max(pile_type.NFR+pile_type.NBL for pile_type in Pile.no_simu.pile_types.values())
-        self.N_max_calc_points = max(sum(layer.NSF for layer in pile_type.above_ground_sections)+sum(layer.NSG for layer in pile_type.below_ground_sections) for pile_type in Pile.no_simu.pile_types.values())
+        self.N_max_calc_points = max(
+            sum(layer.NSF for layer in pile_type.above_ground_sections) +
+            sum(layer.NSG for layer in pile_type.below_ground_sections)
+            for pile_type in Pile.no_simu.pile_types.values()
+        ) + 1   # 计算点数
         
         # 非模拟桩信息
         self.ksh = np.zeros(self.N_max_pile, dtype=int)         # 桩断面形状(0-圆形,1-方形)
@@ -1218,7 +1222,7 @@ if __name__ == "__main__":
     pile.read_dat(Path("tests/Test-1-2.dat"))
     
     np.set_printoptions(linewidth=200, precision=2, suppress=True)
-    print(f"Pile stiffness matrix K:\n{pile.K}")
+    # print(f"Pile stiffness matrix K:\n{pile.K}")
     
 
     np.testing.assert_allclose(pile.K, [
@@ -1230,10 +1234,10 @@ if __name__ == "__main__":
         [ 0.00000000e+00,  6.98491931e-10,  0.00000000e+00, -9.31322575e-10, 0.00000000e+00,  5.72172846e+08]
     ], rtol=1e-5, atol=1e-8)
     
-    ino = 5
-    print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")
+    # ino = 5
+    # print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")
     
-    np.set_printoptions(linewidth=200, precision=4, suppress=True)
+    # np.set_printoptions(linewidth=200, precision=4, suppress=True)
     force = np.array([22927.01, 0, 40702.94, 0, -332015.23, 0])
 
     print(f"Cap displacement:\n{pile.disp_cap(force)}")

@@ -23,8 +23,8 @@ def run_tests() -> None:
 
     # 使用pytest运行所有测试
     tests_dir = Path(__file__).parent
-    exit_code = pytest.main([str(tests_dir), '-v'])
-    
+    exit_code = pytest.main([str(tests_dir), "-v"])
+
     # 根据测试结果设置退出代码
     sys.exit(exit_code)
 
