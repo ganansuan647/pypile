@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "art>=6.4",
     "loguru>=0.7.3",
     "matplotlib>=3.10.1",
     "numpy>=2.2.3",

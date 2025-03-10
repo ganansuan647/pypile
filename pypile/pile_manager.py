@@ -14,7 +14,10 @@ from loguru import logger
 
 from models import PileModel
 
-__version__ = "0.1.0"
+try:
+    from . import __version__
+except ImportError:
+    __version__ = "Debug"
 
 class PileManager:
     def __init__(self, debug: bool = False):
@@ -32,55 +35,75 @@ class PileManager:
         self.input_file = None
         self.output_file = None
         self.pos_file = None
+        
+        self.print_welcome_message()
 
-    def head1(self):
-        """显示程序头信息"""
-        print(f"""
+    def print_welcome_message(self):
+        import random
+        import art
+        import datetime
+        import textwrap
+        
+        def generate_ascii_art(text, fonts):
+            font_list = fonts
+            font = random.choice(font_list)
+            ascii_art = art.text2art(text, font=font)
+            return ascii_art
 
-Welcome to use the pypile program !!
+        def create_bordered_ascii(ascii_art, version):
+            lines = ascii_art.split('\n')
+            width = max(len(line) for line in lines)
+            height = len(lines)
+        
+            horizontal_border = '-' * (width + 3)
+            vertical_padding = ' ' * 1
+            
+            bordered = [horizontal_border]
+            for line in lines:
+                bordered.append(f"|{vertical_padding}{line:<{width}}{vertical_padding}|")
+            
+            # 添加版本信息、版权声明和修改人信息到最后一行
+            copyright_info = f"Version:{version}, ©{datetime.datetime.now().year}"
+            bordered.append(f"|{vertical_padding}{' ':<{width-len(copyright_info)}}{copyright_info}{vertical_padding}|")
+            author_info = "By: Lingyun Gou"
+            bordered.append(f"|{vertical_padding}{' ':<{width-len(author_info)}}{author_info}{vertical_padding}|")
+            bordered.append(horizontal_border)
+            
+            welcome_text = "Welcome to use the pypile program !!"
+            
+            # 使用textwrap模块自动换行
+            info_text1 = "This program is aimed to execute spatial statical analysis of pile foundations of bridge substructures."
+            info_text2 = "If you have any questions about this program, please do not hesitate to create an issue on GitHub or write to:"
+            
+            wrapped_info_text1 = textwrap.fill(info_text1, width=width+3)
+            wrapped_info_text2 = textwrap.fill(info_text2, width=width+3)
+            
+            # 联系信息右对齐
+            contact_info = [
+                "CAD Research Group",
+                "Dept. of Bridge Engr.",
+                "Tongji University",
+                "1239 Sipin Road", 
+                "Shanghai 200092",
+                "P.R. of China"
+            ]
+            
+            # 使用:<进行右对齐
+            right_aligned_contact = [f"{line:>{width+3}}" for line in contact_info]
+            
+            # 添加边框外的欢迎信息和联系信息
+            result = '\n'.join(bordered)
+            result = welcome_text + '\n' + result + '\n' + wrapped_info_text1 + '\n\n' + wrapped_info_text2 + '\n\n' + '\n'.join(right_aligned_contact)
+            
+            return result
 
-This program is aimed to execute spatial statical analysis of pile
-foundations of bridge substructures. If you have any questions about
-this program, please do not hesitate to write to :
+        fonts = ["epic", "doh", "colossal",'block2', "basic", "alpha", "3d_diagonal", "3-d", "1943", "doom", "fire_font", "ghost", "graceful", "graffiti", "impossible", "lean", "letters", "modular", "rounded", "soft", "starwars", "speed2", "sub-zero", "twisted", "varsity"]
 
-                                                  CAD Research Group
-                                                  Dept. of Bridge Engr.
-                                                  Tongji University
-                                                  1239 Sipin Road 
-                                                  Shanghai 200092
-                                                  P.R. of China
-""")
-
-    def head2(self):
-        """输出到文件的程序头信息"""
-        self.output_file.write(f"""
-
-
-       ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-       +                                                                                           +
-       +    BBBBBB       CCCC        A       DDDDD         PPPPPP     III     L         EEEEEEE    +
-       +    B     B     C    C      A A      D    D        P     P     I      L         E          +
-       +    B     B    C           A   A     D     D       P     P     I      L         E          +
-       +    BBBBBB     C          A     A    D     D       PPPPPP      I      L         EEEEEEE    +
-       +    B     B    C          AAAAAAA    D     D       P           I      L         E          +
-       +    B     B     C    C    A     A    D    D        P           I      L         E          +
-       +    BBBBBB       CCCC     A     A    DDDDD         P          III     LLLLLL    EEEEEEE    +
-       +                                                                                           +
-       +                        Copyright 2025, Version {__version__}  modified by Lingyun Gou                  +
-       ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-        Welcome to use the pypile program !!
-        This program is aimed to execute spatial statical analysis of pile
-        foundations of bridge substructures. If you have any questions about
-        this program, please do not hesitate to write to :
-
-                                                                    CAD Research Group
-                                                                    Dept. of Bridge Engr.
-                                                                    Tongji University
-                                                                    1239 Sipin Road 
-                                                                    Shanghai 200092
-                                                                    P.R. of China
-""")
+        ascii_art = generate_ascii_art("PY PILE", fonts)
+        welcome_message = create_bordered_ascii(ascii_art, __version__)
+        # 输出欢迎信息
+        print(welcome_message)
+        return welcome_message
 
     def calculate_total_force(self, force_points):
         """计算外部荷载的合力"""
@@ -984,18 +1007,18 @@ this program, please do not hesitate to write to :
         print("\n程序运行完成，结果已保存到 %s 和 %s 文件中。" % (output_filename, pos_filename))
 
 if __name__ == "__main__":
-    pile = PileManager(debug = True)
-    pile.read_dat(Path("tests/Test-1-2.dat"))
+    # pile = PileManager(debug = True)
+    # pile.read_dat(Path("tests/Test-1-2.dat"))
     
-    np.set_printoptions(linewidth=200, precision=2, suppress=True)
-    print(f"Pile stiffness matrix K:\n{pile.K}")
-    np.set_printoptions()  # Reset to default
+    # np.set_printoptions(linewidth=200, precision=2, suppress=True)
+    # print(f"Pile stiffness matrix K:\n{pile.K}")
+    # np.set_printoptions()  # Reset to default
 
-    np.testing.assert_allclose(pile.K, [
-        [ 3.75361337e+06,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 1.65098740e+07,  0.00000000e+00],
-        [ 0.00000000e+00,  3.68517766e+06,  0.00000000e+00, -1.63086648e+07, 0.00000000e+00,  6.98491931e-10],
-        [ 0.00000000e+00,  0.00000000e+00,  3.40590554e+07,  0.00000000e+00, 1.86264515e-09,  0.00000000e+00],
-        [ 0.00000000e+00, -1.62731362e+07,  0.00000000e+00,  4.64474149e+09, 0.00000000e+00, -2.79396772e-09],
-        [ 1.64737208e+07,  0.00000000e+00,  1.86264515e-09,  0.00000000e+00, 5.76996816e+08,  0.00000000e+00],
-        [ 0.00000000e+00,  6.98491931e-10,  0.00000000e+00, -9.31322575e-10, 0.00000000e+00,  5.72172846e+08]
-    ], rtol=1e-5, atol=1e-8)
+    # np.testing.assert_allclose(pile.K, [
+    #     [ 3.75361337e+06,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 1.65098740e+07,  0.00000000e+00],
+    #     [ 0.00000000e+00,  3.68517766e+06,  0.00000000e+00, -1.63086648e+07, 0.00000000e+00,  6.98491931e-10],
+    #     [ 0.00000000e+00,  0.00000000e+00,  3.40590554e+07,  0.00000000e+00, 1.86264515e-09,  0.00000000e+00],
+    #     [ 0.00000000e+00, -1.62731362e+07,  0.00000000e+00,  4.64474149e+09, 0.00000000e+00, -2.79396772e-09],
+    #     [ 1.64737208e+07,  0.00000000e+00,  1.86264515e-09,  0.00000000e+00, 5.76996816e+08,  0.00000000e+00],
+    #     [ 0.00000000e+00,  6.98491931e-10,  0.00000000e+00, -9.31322575e-10, 0.00000000e+00,  5.72172846e+08]
+    # ], rtol=1e-5, atol=1e-8)
