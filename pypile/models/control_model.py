@@ -3,7 +3,7 @@ from typing import Optional, List, Union, Tuple, Dict, Any, ClassVar
 import re
 
 # 基础控制模型
-class ControlBaseModel(BaseModel):
+class ControlModel(BaseModel):
     JCTR: int = Field(..., description="控制参数，定义执行的分析类型")
     
     @field_validator('JCTR')
@@ -14,7 +14,7 @@ class ControlBaseModel(BaseModel):
         return v
 
 # JCTR=3 的情况，需要额外的 INO 参数
-class Control3Model(ControlBaseModel):
+class Control3Model(ControlModel):
     INO: int = Field(..., description="指定单桩的桩号")
 
 # 外力作用点模型
@@ -29,13 +29,13 @@ class ForcePoint(BaseModel):
     MZ: float = Field(..., description="Z方向力矩")
 
 # JCTR=1 的情况，需要外力信息
-class Control1Model(ControlBaseModel):
+class Control1Model(ControlModel):
     NACT: int = Field(..., description="作用力点数量")
     force_points: List[ForcePoint] = Field(..., description="作用力点列表")
 
 # 主控制模型，根据JCTR值动态选择适当的模型
-class ControlModel(BaseModel):
-    control: Union[ControlBaseModel, Control1Model, Control3Model]
+class ControlInfoModel(BaseModel):
+    control: Union[ControlModel, Control1Model, Control3Model]
     
     @model_validator(mode='before')
     @classmethod
@@ -178,7 +178,7 @@ class ControlModel(BaseModel):
             
         elif jctr == 2:
             # JCTR=2的情况，只需要JCTR值
-            data['control'] = ControlBaseModel(JCTR=jctr)
+            data['control'] = ControlModel(JCTR=jctr)
             
         elif jctr == 3:
             # JCTR=3的情况，需要额外的INO参数
@@ -205,8 +205,8 @@ class ControlModel(BaseModel):
         return data
 
 # 工厂函数：根据输入文本创建适当的模型实例
-def parse_control_text(input_text: str) -> ControlModel:
-    return ControlModel(input_text=input_text)
+def parse_control_text(input_text: str) -> ControlInfoModel:
+    return ControlInfoModel(input_text=input_text)
 
 
 if __name__ == "__main__":

@@ -96,12 +96,12 @@ class NoSimuPileModel(BaseModel):
         return self
 
 # 非模拟桩分组信息模型
-class NoSimuPileGroup(BaseModel):
+class NoSimuModel(BaseModel):
     KCTR: List[int] = Field(..., description="非模拟桩类型标识")
     pile_types: Dict[int, NoSimuPileModel] = Field(..., description="非模拟桩类型信息")
     
     @model_validator(mode='after')
-    def validate_kctr_keys(self) -> 'NoSimuPileGroup':
+    def validate_kctr_keys(self) -> 'NoSimuModel':
         """验证KCTR中的所有值都在pile_types字典中有对应的键"""
         for k in self.KCTR:
             if k not in self.pile_types:
@@ -111,7 +111,7 @@ class NoSimuPileGroup(BaseModel):
 
 # 非模拟桩信息解析模型
 class NoSimuInfoModel(BaseModel):
-    no_simu: NoSimuPileGroup
+    no_simu: NoSimuModel
     
     @model_validator(mode='before')
     @classmethod
@@ -136,7 +136,7 @@ class NoSimuInfoModel(BaseModel):
         raw_input = re.sub(r'\n+', '\n', raw_input)
         
         # 解析[NO_SIMU] 到 END; 或end;之间的内容，更灵活地处理空白和缩进
-        no_simu_pattern = r'\s*\[(no[\s_]*(simu))\]\s*(.*?)\s*(?:END;|end;)'
+        no_simu_pattern = r'\s*\[(no[\s_]*(simu))\]\s*(.*?)\s*(?:END|end)'
         match = re.search(no_simu_pattern, raw_input, re.DOTALL | re.IGNORECASE)
         
         if match:
@@ -166,9 +166,7 @@ class NoSimuInfoModel(BaseModel):
             pile_data = "\n".join(lines[start_line+1:end_line])
             
             # 提取所有数值
-            values = list(map(float, re.findall(r'-?\d+\.?\d*', pile_data)))
-            if len(values) < 12:  # 至少需要基本字段数据
-                raise ValueError(f"桩类型{pile_type}的信息不完整")
+            values = list(map(float, re.findall(r'-?\d+\.?\d*(?:[eE][+-]?\d+)?', pile_data.split('\n')[0]))) # 必须在第一行
             
             # 解析基本字段
             ksh = int(values[0])
@@ -176,8 +174,9 @@ class NoSimuInfoModel(BaseModel):
             agl = values[2:5]
             
             # 解析地上桩段
-            nfr = int(values[5])
-            idx = 6
+            values = list(map(float, re.findall(r'-?\d+\.?\d*(?:[eE][+-]?\d+)?', pile_data.split('\n')[1]))) # 必须在第二行
+            nfr = int(values[0])
+            idx = 1
             above_ground_sections = []
             for _ in range(nfr):
                 if idx + 2 >= len(values):
@@ -190,8 +189,10 @@ class NoSimuInfoModel(BaseModel):
                 idx += 3
             
             # 解析地下桩段
-            nbl = int(values[idx])
-            idx += 1
+            # 如果地上段有nfr个桩段，则地下段从nfr+1开始
+            values = list(map(float, re.findall(r'-?\d+\.?\d*(?:[eE][+-]?\d+)?', '\n'.join(pile_data.split('\n')[2+idx//3:])))) # 必须在第三+idx//3行及以后
+            nbl = int(values[0])
+            idx = 1
             below_ground_sections = []
             for _ in range(nbl):
                 if idx + 4 >= len(values):
@@ -226,8 +227,8 @@ class NoSimuInfoModel(BaseModel):
                 PKE=pke
             )
         
-        # 构建NoSimuPileGroup
-        data['no_simu'] = NoSimuPileGroup(
+        # 构建NoSimuModel
+        data['no_simu'] = NoSimuModel(
             KCTR=kctr_values,
             pile_types=pile_types
         )
@@ -263,12 +264,30 @@ if __name__ == "__main__":
     END;
     """
     
+    input_text = """
+[no_simu]
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+<0>
+0 1 0 0 1
+0 0 0 0
+7 21.6 1.8 3000 13.7 22
+25.7 1.8 5000 15.5 26
+14.1 1.8 5000 30.0 15
+1.0 1.8 5000 17.0 1
+5.9 1.8 10000 17.0 6
+2.5 1.8 5000 17.0 3
+14.2 1.8 5000 31.0 15
+5000 3e7 1
+end
+    """
+    
     model = parse_no_simu_text(input_text)
     print(f"KCTR({model.no_simu.model_fields['KCTR'].description}): {model.no_simu.KCTR}")
     print(f"桩类型数量: {len(model.no_simu.pile_types)}")
     for type_id, pile_type in model.no_simu.pile_types.items():
         print(f"桩类型 {type_id}:")
         print(f"  KSH({pile_type.model_fields['KSH'].description}): {pile_type.KSH}, KSU({pile_type.model_fields['KSU'].description}): {pile_type.KSU}")
+        print(f"  余弦值: {pile_type.AGL}")
         print(f"  地上桩段数: {pile_type.NFR}")
         print(f"  地下桩段数: {pile_type.NBL}")
         

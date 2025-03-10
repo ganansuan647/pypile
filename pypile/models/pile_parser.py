@@ -1,7 +1,7 @@
 from pydantic_core.core_schema import model_field
-from .arrange_model import parse_arrange_text, ArrangeInfoModel
-from .simu_pile_model import parse_simu_pile_text, SimuPileInfoModel
-from .no_simu_model import parse_no_simu_text, NoSimuInfoModel
+from .arrange_model import parse_arrange_text, ArrangeModel
+from .simu_pile_model import parse_simu_pile_text, SimuPileModel
+from .no_simu_model import parse_no_simu_text, NoSimuModel
 from .control_model import parse_control_text, ControlModel
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -11,9 +11,9 @@ import re
 class PileModel(BaseModel):
     name: str = Field(description="桩基础名称")
     control: ControlModel = Field(description="计算控制参数")
-    arrange: ArrangeInfoModel = Field(description="桩布置信息")
-    no_simu: NoSimuInfoModel = Field(description="非模拟桩信息")
-    simu_pile: SimuPileInfoModel = Field(description="模拟桩信息")
+    arrange: ArrangeModel = Field(description="桩布置信息")
+    no_simu: NoSimuModel = Field(description="非模拟桩信息")
+    simu_pile: SimuPileModel = Field(description="模拟桩信息")
     
     @model_validator(mode='before')
     @classmethod
@@ -89,10 +89,10 @@ class PileModel(BaseModel):
         # 返回解析后的model_field，包括name字段
         return {
             "name": name,
-            "control": control, 
-            "arrange": arrange, 
-            "no_simu": no_simu, 
-            "simu_pile": simu_pile
+            "control": control.control, 
+            "arrange": arrange.arrange, 
+            "no_simu": no_simu.no_simu, 
+            "simu_pile": simu_pile.simu_pile
         }
 
 def parse_pile_text(input_text: str) -> PileModel:

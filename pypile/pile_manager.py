@@ -89,11 +89,11 @@ this program, please do not hesitate to write to :
         """初始化参数"""
         self.Pile = Pile
         # 初始化参数
-        self.pnum = Pile.arrange.pnum   # 非模拟桩数量，来自 arrange模块
-        self.snum = Pile.arrange.snum   # 模拟桩数量，来自 arrange模块
+        self.pnum = Pile.arrange.PNUM   # 非模拟桩数量，来自 arrange模块
+        self.snum = Pile.arrange.SNUM   # 模拟桩数量，来自 arrange模块
         self.N_max_pile = self.pnum + self.snum
         self.N_max_layer = max(pile_type.NFR+pile_type.NBL for pile_type in Pile.no_simu.pile_types.values())
-        self.N_max_calc_points = max(pile_type.above_ground_sections.NSF+sum(layer.NSG for layer in pile_type.below_ground_sections) for pile_type in Pile.no_simu.pile_types.values())
+        self.N_max_calc_points = max(sum(layer.NSF for layer in pile_type.above_ground_sections)+sum(layer.NSG for layer in pile_type.below_ground_sections) for pile_type in Pile.no_simu.pile_types.values())
         
         # 非模拟桩信息
         # self.pxy = np.zeros((self.N_max_pile, 2), dtype=float)  # 桩的坐标
@@ -116,13 +116,12 @@ this program, please do not hesitate to write to :
         self.pke = np.zeros(self.N_max_pile, dtype=float)       # 桩材剪切模量与弹性模量比
 
         # 模拟桩信息
-        self.sxy = np.zeros((self.N_max_pile_simu, 2), dtype=float)    # 模拟桩坐标
-        # self.ksctr = np.zeros(self.N_max_pile_simu, dtype=int)         # 模拟桩控制信息
+        self.sxy = np.zeros((self.snum, 2), dtype=float)    # 模拟桩坐标
 
         # 桩单元刚度
         self.esp = np.zeros((self.N_max_pile**2, 6), dtype=float)
         # control
-        self.jctr = Pile.control.jctr
+        self.jctr = Pile.control.JCTR
         if self.jctr == 1:
             # JCTR = 1：执行完整分析
             # 计算总荷载
@@ -136,12 +135,12 @@ this program, please do not hesitate to write to :
         
         # arrange - 设置桩的坐标信息
         self.pxy = np.array([[coord.X, coord.Y] for coord in Pile.arrange.pile_coordinates])
-        if Pile.arrange.snum > 0:
+        if self.snum > 0:
             self.sxy[:self.snum, :] = np.array([[coord.X, coord.Y] for coord in Pile.arrange.simu_pile_coordinates])
         
         # no_simu - 设置非模拟桩信息
         # 读取KCTR
-        self.kctr[:self.pnum] = np.array(Pile.no_simu.no_simu.KCTR, dtype=int)
+        self.kctr = np.array(Pile.no_simu.KCTR, dtype=int)
         
         all_pile_ids = Pile.no_simu.pile_types.keys()        
         # 为每个桩填充信息
@@ -181,9 +180,9 @@ this program, please do not hesitate to write to :
         
         # simu_pile - 设置模拟桩信息
         if self.snum > 0:
-            raise NotImplementedError("Simulated piles are not supported yet.")
             # 读取KSCTR
-            self.ksctr[:self.snum] = np.array(Pile.simu_pile.simu_pile.KSCTR, dtype=int)
+            self.ksctr = np.array(Pile.simu_pile.simu_pile.KSCTR, dtype=int)
+            raise NotImplementedError("Simulated piles are not supported yet.")
             
             # 为模拟桩单元刚度矩阵赋值
             is_val = self.pnum * 6  # 初始索引
@@ -959,4 +958,5 @@ if __name__ == "__main__":
     pile = PileManager()
     pile.read_dat(Path("tests/Test-1-2.dat"))
     pile.stiffness()
+    from rich import print
     print(pile.K)

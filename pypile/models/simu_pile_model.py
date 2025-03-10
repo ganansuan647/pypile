@@ -96,12 +96,12 @@ class SimuPileModel(BaseModel):
         return self
 
 # 模拟桩分组信息模型
-class SimuPileGroup(BaseModel):
+class SimuPileModel(BaseModel):
     KSCTR: List[int] = Field(..., description="模拟桩类型标识")
     pile_types: Dict[int, SimuPileModel] = Field(..., description="模拟桩类型信息")
     
     @model_validator(mode='after')
-    def validate_ksctr_keys(self) -> 'SimuPileGroup':
+    def validate_ksctr_keys(self) -> 'SimuPileModel':
         """验证KSCTR中的所有值都在pile_types字典中有对应的键"""
         for k in self.KSCTR:
             if k not in self.pile_types:
@@ -111,7 +111,7 @@ class SimuPileGroup(BaseModel):
 
 # 模拟桩信息解析模型
 class SimuPileInfoModel(BaseModel):
-    simu_pile: SimuPileGroup
+    simu_pile: SimuPileModel
     
     @model_validator(mode='before')
     @classmethod
@@ -146,6 +146,11 @@ class SimuPileInfoModel(BaseModel):
         
         # 按行分割内容
         lines = [line.strip() for line in content.split('\n') if line.strip()]
+        if not lines:
+            return {'simu_pile': SimuPileModel(
+            KSCTR=[],
+            pile_types={}
+        )}
         
         # 解析KSCTR列表
         ksctr_values = list(map(int, re.findall(r'-?\d+', lines[0])))
@@ -226,7 +231,7 @@ class SimuPileInfoModel(BaseModel):
             )
         
         # 构建SimuPileGroup
-        data['simu_pile'] = SimuPileGroup(
+        data['simu_pile'] = SimuPileModel(
             KSCTR=ksctr_values,
             pile_types=pile_types
         )
@@ -240,19 +245,23 @@ def parse_simu_pile_text(input_text: str) -> SimuPileInfoModel:
 
 if __name__ == "__main__":
     # 测试输入
+    # input_text = """
+    # [simu_pe]
+    # 4 5
+    # <4>
+    # 0 2 0.0 0.0 1.0
+    # 1 5.0 1.0 2
+    # 2 10.0 1.0 30000.0 30.0 3 15.0 1.0 28000.0 28.0 3
+    # 25000.0 30000000.0 1.0
+    # <5>
+    # 1 3 0.0 0.0 1.0
+    # 0
+    # 1 10.0 1.0 35000.0 30.0 2
+    # 30000.0 32000000.0 1.0
+    # END;
+    # """
     input_text = """
     [simu_pe]
-    4 5
-    <4>
-    0 2 0.0 0.0 1.0
-    1 5.0 1.0 2
-    2 10.0 1.0 30000.0 30.0 3 15.0 1.0 28000.0 28.0 3
-    25000.0 30000000.0 1.0
-    <5>
-    1 3 0.0 0.0 1.0
-    0
-    1 10.0 1.0 35000.0 30.0 2
-    30000.0 32000000.0 1.0
     END;
     """
     
