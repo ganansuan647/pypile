@@ -11,8 +11,6 @@ dependencies = [
     "numpy>=2.2.3",
     "plotly>=6.0.0",
     "pydantic>=2.10.6",
-    "pyyaml>=6.0.2",
-    "toml>=0.10.2",
 ]
 
 [dependency-groups]

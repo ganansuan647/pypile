@@ -13,10 +13,12 @@ setup(
     author_email="example@example.com",
     packages=find_packages(),
     install_requires=[
-        "numpy>=1.20.0",
-        "matplotlib>=3.3.0",
-        "numba>=0.53.0",
-        "plotly>=5.0.0",
+        "art>=6.4",
+        "loguru>=0.7.3",
+        "matplotlib>=3.10.1",
+        "numpy>=2.2.3",
+        "plotly>=6.0.0",
+        "pydantic>=2.10.6",
     ],
     entry_points={
         "console_scripts": [
@@ -29,5 +31,5 @@ setup(
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering :: Civil Engineering",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
 )
