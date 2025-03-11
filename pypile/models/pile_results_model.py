@@ -57,8 +57,3 @@ class PileResult(BaseModel):
     top_result: PileTopResult = Field(..., description="桩顶位移和内力")
     nodes: List[PileNodeResult] = Field(..., description="桩体各节点结果")
     ground_level_index: int = Field(..., description="地面所在节点索引")
-
-
-# 全部桩体计算结果模型
-class PileResultsModel(BaseModel):
-    results: Dict[int, PileResult] = Field(..., description="各桩计算结果，键为桩号")

@@ -12,6 +12,7 @@ from pathlib import Path
 from loguru import logger
 
 from models import PileModel
+from models import PileResult, PileTopResult, PileNodeResult
 
 try:
     from . import __version__
@@ -1003,7 +1004,7 @@ class PileManager:
             self.disp_piles(force)
         
         # 导入结果模型
-        from models.pile_results_model import PileResult, PileTopResult, PileNodeResult, PileResultsModel
+        from models.pile_results_model import PileResult, PileTopResult, PileNodeResult
         
         results = {}
         # 计算每个桩的位移和内力
@@ -1149,12 +1150,7 @@ class PileManager:
             # 保存结果
             results[k] = pile_result
         
-        # 创建桩基础结果
-        results_model = PileResultsModel(
-            results=results
-        )
-        
-        return results_model
+        return results
     
     def cli(self):
         """运行程序的主函数"""
@@ -1212,10 +1208,13 @@ if __name__ == "__main__":
     # ino = 5
     # print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")
     
-    # np.set_printoptions(linewidth=200, precision=4, suppress=True)
-    force = np.array([22927.01, 0, 40702.94, 0, -332015.23, 0])
+    np.set_printoptions(linewidth=200, precision=4, suppress=True)
+    force = np.array([22927.01, 0, 40702.94, 0.0, -332015.23, 0])
 
     print(f"Cap displacement:\n{pile.disp_cap(force)}")
     # print(f"Pile displacement:\n{pile.disp_piles(force)}")
     
-    print(f"Pile forces:\n{pile.eforce(force)}")
+    pile_results = pile.eforce(force)
+    # print(f"Pile forces:\n{pile_results.results[1]}")
+    for pile_id,result in pile_results.items():
+        print(f"Pile {pile_id} at {result.coordinate}, top result:\n{result.top_result.MY}")
