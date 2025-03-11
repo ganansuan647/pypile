@@ -24,7 +24,7 @@ except ImportError:
     __version__ = "Debug"
 
 class PileManager:
-    def __init__(self, debug: bool = False):
+    def __init__(self, debug: bool = False, welcome: bool = True):
         self.debug: bool = debug
         # 配置日志系统
         if debug:
@@ -40,7 +40,8 @@ class PileManager:
         self.output_file = None
         self.pos_file = None
         
-        print(self.welcome_message)
+        if welcome:
+            print(self.welcome_message)
 
     @property
     def welcome_message(self):
@@ -1159,58 +1160,79 @@ class PileManager:
     def cli(self) -> None:
         """运行程序的主函数，支持命令行参数"""
         import argparse
-        from pathlib import Path
+        import art
+        import random
         
         # 创建参数解析器
         parser = argparse.ArgumentParser(description='PyPile - 桩基础分析程序')
         parser.add_argument('-f', '--file', type=str, help='输入数据文件名（.dat格式）')
         parser.add_argument('-d', '--debug', action='store_true', help='启用调试模式')
+        parser.add_argument('-o', '--old', type=str, help='运行旧版BCAD_PILE程序:')
+        parser.add_argument('-v', '--version', action='version', version=f'PyPile {__version__}')
         
         # 解析命令行参数
         args = parser.parse_args()
         
+        # 运行旧版BCAD_PILE程序
+        if args.old:
+            from .original import BCADPile
+            bcad = BCADPile(N_max_pile=1000, N_max_pile_simu=20, N_max_layer=50, N_max_calc_points=1000)
+            bcad.run()
+            return
+        
         # 设置调试模式
         if args.debug:
             self.debug = True
-            from loguru import logger
-            logger.add("pypile.log", level="DEBUG")
-            logger.info("Debug mode enabled, detailed logs will be written to pypile.log")
         
         # 获取输入文件名
-        fname: str = ""
+        fname: Path = Path("")
         if args.file:
-            fname = args.file
+            fname = Path(args.file)
         else:
             # 如果未提供文件名参数，则交互式获取
-            print("请输入数据文件名:")
-            fname = input().strip()
+            print(self.welcome_message)
+            while not fname.is_file():
+                if fname.stem:
+                    print(f"文件 '{fname.stem}' 在路径 '{fname.parent.absolute()}' 下不存在！请检查后重试!")
+                
+                fname = Path(input("请输入数据文件名(.dat格式):")).with_suffix('.dat')
         
         # 构建输入输出文件名
-        input_filename = self.f_name(fname, '.dat')
-        output_filename = self.f_name(fname, '.out')
-        pos_filename = self.f_name(fname, '.pos')
+        output_filename = fname.with_suffix('.out')
+        pos_filename = fname.with_suffix('.pos')
         
         # 打开文件
-        self.input_file = open(input_filename, 'r')
         self.output_file = open(output_filename, 'w')
         self.pos_file = open(pos_filename, 'w')
         
-        # 输出程序头到输出文件
-        self.head2()
-        
         # 初始化数据
-        print("       *** 正在读取输入信息 ***\n")
-        self.read_dat()
-        
-        # 执行计算流程 (使用拆分到calculation文件夹的计算模块)
-        so = run_calculation(self, jctr, ino, pnum, snum, force, zfr, zbl)
-        
+        print(f"\n{art.art('wizard2')}  **正在读取输入信息**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
+        self.read_dat(fname)
+
+        # 计算桩的变形因子
+        print(f"{art.art('wizard2')}  **计算桩的变形因子**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
+        self.btxy()
+
+        # 计算桩底面积和轴向刚度
+        print(f"{art.art('wizard2')}  **计算桩的轴向刚度**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
+        self.area()
+        self.stiff_n()
+
+        # 计算桩的侧向刚度
+        print(f"{art.art('wizard2')}  **计算桩的侧向刚度**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
+        self.pstiff()
+
+        if self.jctr == 1:
+            # 计算桩基承台的位移和内力
+            print(f"{art.art(f'happy{random.randint(1, 27)}')}\t**计算桩基承台的位移和内力**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
+            self.eforce()
+
         # 关闭文件
         self.input_file.close()
         self.output_file.close()
         self.pos_file.close()
-        
-        print("\n程序运行完成，结果已保存到 %s 和 %s 文件中。" % (output_filename, pos_filename))
+
+        print(f"程序运行完成，结果已保存到 {output_filename} 和 {pos_filename} 文件中。{art.art(f'happy{random.randint(1, 27)}')}\n")
 
 if __name__ == "__main__":
     pile = PileManager(debug = True)
