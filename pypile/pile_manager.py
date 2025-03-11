@@ -994,15 +994,18 @@ class PileManager:
             print("               DISPLACEMENTS AT EACH PILES\n")
             print("       *****************************************************************************************************\n")
             for k in range(self.pnum):
-                print(f"Pile {k+1}: UX= {duk[k, 0]:12.4e} (m), UY= {duk[k, 1]:12.4e} (m), UZ= {duk[k, 2]:12.4e} (m), SX= {duk[k, 3]:12.4e} (rad), SY= {duk[k, 4]:12.4e} (rad), SZ= {duk[k, 5]:12.4e} (rad)")
+                print(f"Pile {k+1}: UX= {self.duk[k, 0]:12.4e} (m), UY= {self.duk[k, 1]:12.4e} (m), UZ= {self.duk[k, 2]:12.4e} (m), SX= {self.duk[k, 3]:12.4e} (rad), SY= {self.duk[k, 4]:12.4e} (rad), SZ= {self.duk[k, 5]:12.4e} (rad)")
             
         return self.duk
     
     def eforce(self, force:np.ndarray = None, print_in_cli:bool = False):
-        """计算桩体的位移和内力"""
         if not hasattr(self, 'duk'):
             self.disp_piles(force)
         
+        # 导入结果模型
+        from models.pile_results_model import PileResult, PileTopResult, PileNodeResult, PileResultsModel
+        
+        results = {}
         # 计算每个桩的位移和内力
         for k in range(self.pnum):
             # 获取桩的单元刚度和位移
@@ -1108,78 +1111,50 @@ class PileManager:
                     else:
                         fz[nsum] = fz[ig] * (1.0 - h2**2 / self.zbl[k]**2)
             
-            # 输出桩体位移和内力到输出文件
-            print("       ****************************************************************************************\n")
-            print(f"                                  NO. {k} # PILE\n")
-            print("       ****************************************************************************************\n")
-            print(f"\n            Coordinator of the pile: (x,y) = ({self.pxy[k, 0]:12.4e} ,{self.pxy[k, 1]:12.4e} )\n\n")
-            print("            Displacements and internal forces at the top of pile:\n")
-            print(f"\n               UX= {ce[0]:12.4e} (m)         NX= {pe[0]:12.4e} (t)\n")
-            print(f"               UY= {ce[1]:12.4e} (m)         NY= {pe[1]:12.4e} (t)\n")
-            print(f"               UZ= {ce[2]:12.4e} (m)         NZ= {pe[2]:12.4e} (t)\n")
-            print(f"               SX= {ce[3]:12.4e} (rad)       MX= {pe[3]:12.4e} (t*m)\n")
-            print(f"               SY= {ce[4]:12.4e} (rad)       MY= {pe[4]:12.4e} (t*m)\n")
-            print(f"               SZ= {ce[5]:12.4e} (rad)       MZ= {pe[5]:12.4e} (t*m)\n\n")
-            print
-            print("       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-            print("                                Displacements of the pile body and\n")
-            print("                             Compression stresses of soil (PSX,PSY)\n")
-            print("       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-            print("\n               Z            UX            UY            SX            SY            PSX            PSY\n")
-            print("              (m)           (m)           (m)          (rad)         (rad)         (t/m2)         (t/m2)\n\n")
-            
-            # 输出地上段数据
-            for i in range(ig):
-                line = f"       {zh[i]:14.4e}{fx[i, 0]:14.4e}{fy[i, 0]:14.4e}{fy[i, 1]:14.4e}{fx[i, 1]:14.4e}"
-                print(line + "\n")
-            
-            # 输出地下段数据
-            for i in range(ig, nsum+1):
-                line = f"       {zh[i]:14.4e}{fx[i, 0]:14.4e}{fy[i, 0]:14.4e}{fy[i, 1]:14.4e}{fx[i, 1]:14.4e}{psx[i]:14.4e}{psy[i]:14.4e}"
-                print(line + "\n")
-            
-            print("\n\n")
-            print("       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-            print("                                Internal forces of the pile body\n")
-            print("       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-            print("\n                  Z              NX              NY              NZ              MX              MY\n")
-            print("                 (m)             (t)             (t)             (t)            (t*m)           (t*m)\n\n")
-            
-            # 输出内力数据
-            for i in range(nsum+1):
-                line = f"       {zh[i]:16.4e}{fx[i, 2]:16.4e}{fy[i, 2]:16.4e}{fz[i]:16.4e}{fy[i, 3]:16.4e}{fx[i, 3]:16.4e}"
-                print(line + "\n")
-            
-            # 输出位移和内力数据到pos文件
             # 为地上段设置零土压力
             for i in range(ig):
                 psx[i] = 0.0
                 psy[i] = 0.0
+                
+            # 创建桩顶结果
+            top_result = PileTopResult(
+                UX=ce[0], UY=ce[1], UZ=ce[2],
+                SX=ce[3], SY=ce[4], SZ=ce[5],
+                NX=pe[0], NY=pe[1], NZ=pe[2],
+                MX=pe[3], MY=pe[4], MZ=pe[5]
+            )
             
-            # 写入桩号和节点数
-            print(f"{k} {nsum+1}\n")
-            # 写入桩顶坐标
-            print(f"{self.pxy[k, 0]:14.4e} {self.pxy[k, 1]:14.4e}\n")
-            # 写入各节点Z坐标
-            line = " ".join([f"{zh[i]:14.4e}" for i in range(nsum+1)])
-            print(line + "\n")
-            # 写入X方向变形和内力
+            # 创建各节点结果
+            nodes = []
             for i in range(nsum+1):
-                line = " ".join([f"{fx[i, j]:14.4e}" for j in range(4)])
-                self.pos_file.write(line + "\n")
-            # 写入Y方向变形和内力
-            for i in range(nsum+1):
-                line = " ".join([f"{fy[i, j]:14.4e}" for j in range(4)])
-                print(line + "\n")
-            # 写入Z方向内力
-            line = " ".join([f"{fz[i]:14.4e}" for i in range(nsum+1)])
-            print(line + "\n")
-            # 写入X方向土压力
-            line = " ".join([f"{psx[i]:14.4e}" for i in range(nsum+1)])
-            print(line + "\n")
-            # 写入Y方向土压力
-            line = " ".join([f"{psy[i]:14.4e}" for i in range(nsum+1)])
-            print(line + "\n")
+                node = PileNodeResult(
+                    Z=zh[i],
+                    UX=fx[i, 0], UY=fy[i, 0],
+                    SX=fy[i, 1], SY=fx[i, 1],
+                    NX=fx[i, 2], NY=fy[i, 2], NZ=fz[i],
+                    MX=fy[i, 3], MY=fx[i, 3],
+                    PSX=psx[i], PSY=psy[i]
+                )
+                nodes.append(node)
+            
+            # 创建桩体结果
+            pile_result = PileResult(
+                pile_number=k,
+                coordinate=[self.pxy[k, 0], self.pxy[k, 1]],
+                top_result=top_result,
+                nodes=nodes,
+                ground_level_index=ig
+            )
+            
+            # 保存结果
+            results[k] = pile_result
+        
+        # 创建桩基础结果
+        results_model = PileResultsModel(
+            results=results
+        )
+        
+        return results_model
     
     def cli(self):
         """运行程序的主函数"""
