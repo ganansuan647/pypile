@@ -13,6 +13,9 @@ dependencies = [
     "pydantic>=2.10.6",
 ]
 
+[project.scripts]
+pypile = "pypile.cli:main"
+
 [dependency-groups]
 dev = [
     "meson>=1.7.0",

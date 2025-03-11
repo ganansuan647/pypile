@@ -9,6 +9,7 @@ Converted from the original Fortran pypile program.
 __version__ = "0.1.0"
 
 from .models import PileModel, parse_pile_text
+from .pile_manager import PileManager
 
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "models",
     "PileModel",
     "parse_pile_text",
+    "PileManager",
 ]

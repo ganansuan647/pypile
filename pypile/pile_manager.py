@@ -11,8 +11,12 @@ import math
 from pathlib import Path
 from loguru import logger
 
-from models import PileModel
-from models import PileResult, PileTopResult, PileNodeResult
+if __name__ == "__main__":
+    from models import PileModel
+    from models import PileResult, PileTopResult, PileNodeResult
+else:
+    from .models import PileModel
+    from .models import PileResult, PileTopResult, PileNodeResult
 
 try:
     from . import __version__
@@ -70,7 +74,7 @@ class PileManager:
             bordered.append(f"|{vertical_padding}{' ':<{width-len(author_info)}}{author_info}{vertical_padding}|")
             bordered.append(horizontal_border)
             
-            welcome_text = "Welcome to use the pypile program !!"
+            welcome_text = "Welcome to use the PyPile program !!"
             
             # 使用textwrap模块自动换行
             info_text1 = "This program is aimed to execute spatial statical analysis of pile foundations of bridge substructures."
@@ -94,7 +98,7 @@ class PileManager:
             
             # 添加边框外的欢迎信息和联系信息
             result = '\n'.join(bordered)
-            result = welcome_text + '\n' + result + '\n' + wrapped_info_text1 + '\n\n' + wrapped_info_text2 + '\n\n' + '\n'.join(right_aligned_contact)
+            result = result + '\n' + welcome_text + '\n\n' + wrapped_info_text1 + '\n\n' + wrapped_info_text2 + '\n\n' + '\n'.join(right_aligned_contact)
             
             return result
 
@@ -1152,14 +1156,34 @@ class PileManager:
         
         return results
     
-    def cli(self):
-        """运行程序的主函数"""
-        # 显示程序头
-        print(self.welcome_message)
+    def cli(self) -> None:
+        """运行程序的主函数，支持命令行参数"""
+        import argparse
+        from pathlib import Path
         
-        # 读取数据文件名
-        print("Please enter data filename:")
-        fname = input().strip()
+        # 创建参数解析器
+        parser = argparse.ArgumentParser(description='PyPile - 桩基础分析程序')
+        parser.add_argument('-f', '--file', type=str, help='输入数据文件名（.dat格式）')
+        parser.add_argument('-d', '--debug', action='store_true', help='启用调试模式')
+        
+        # 解析命令行参数
+        args = parser.parse_args()
+        
+        # 设置调试模式
+        if args.debug:
+            self.debug = True
+            from loguru import logger
+            logger.add("pypile.log", level="DEBUG")
+            logger.info("Debug mode enabled, detailed logs will be written to pypile.log")
+        
+        # 获取输入文件名
+        fname: str = ""
+        if args.file:
+            fname = args.file
+        else:
+            # 如果未提供文件名参数，则交互式获取
+            print("请输入数据文件名:")
+            fname = input().strip()
         
         # 构建输入输出文件名
         input_filename = self.f_name(fname, '.dat')
@@ -1175,7 +1199,7 @@ class PileManager:
         self.head2()
         
         # 初始化数据
-        print("       *** To read input information ***\n")
+        print("       *** 正在读取输入信息 ***\n")
         self.read_dat()
         
         # 执行计算流程 (使用拆分到calculation文件夹的计算模块)
@@ -1209,12 +1233,17 @@ if __name__ == "__main__":
     # print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")
     
     np.set_printoptions(linewidth=200, precision=4, suppress=True)
-    force = np.array([22927.01, 0, 40702.94, 0.0, -332015.23, 0])
+    force = np.array([22927.01, 0, 40702.94, 0.0, 320150.23, 0])
 
-    print(f"Cap displacement:\n{pile.disp_cap(force)}")
+    # print(f"Cap displacement:\n{pile.disp_cap(force)}")
     # print(f"Pile displacement:\n{pile.disp_piles(force)}")
     
     pile_results = pile.eforce(force)
     # print(f"Pile forces:\n{pile_results.results[1]}")
-    for pile_id,result in pile_results.items():
-        print(f"Pile {pile_id} at {result.coordinate}, top result:\n{result.top_result.MY}")
+    # for pile_id,result in pile_results.items():
+    #     reaction = "NZ"
+    #     print(f"Pile {pile_id} at {result.coordinate}, \t{result.top_result.model_fields[reaction].description}:{getattr(result.top_result, reaction):.4e}")
+
+    # for node in pile_results[23].nodes:
+    #     reaction = "MY"
+    #     print(f"z:{node.Z:.1f}m {node.model_fields[reaction].description}:{getattr(node, reaction):.4e}")
