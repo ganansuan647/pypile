@@ -3,14 +3,14 @@
 <div align="center">
 
 ![版本](https://img.shields.io/badge/版本-1.0.0-blue)
-![Python](https://img.shields.io/badge/Python-3.7+-green)
+![Python](https://img.shields.io/badge/Python-3.9+-green)
 ![许可证](https://img.shields.io/badge/许可证-GPL--3.0-orange)
 
 </div>
 
 ## 📋 项目概述
 
-pypile 是一个用于桥梁基础结构空间静力分析的 Python 包，其源代码(BCAD_PILE)由 Fortran 代码转换而来。该工具可以执行桩基础在不同荷载条件下的行为分析，包括位移、内力以及土-结构相互作用。特别适用于桥梁结构在地震及多灾害(如冲刷、液化等)条件下的基础分析。
+PyPile 是一个用于桥梁基础结构空间静力分析的 Python 包，其源代码(BCAD_PILE)由 Fortran 代码转换而来。该工具可以执行桩基础在不同荷载条件下的行为分析，包括位移、内力以及土-结构相互作用。能够生成报告, 并自动推算最不利单桩内力。
 
 ## ✨ 主要功能
 
@@ -18,10 +18,21 @@ pypile 是一个用于桥梁基础结构空间静力分析的 Python 包，其�
 - 桩基变形因子计算
 - 轴向和横向刚度分析
 - 桩基内力和位移计算
-- 分析结果可视化
-- 基于 Plotly 的交互式 3D 可视化
+- 分析结果输出报告 ✅
+- 基于 Plotly 的交互式 3D 可视化 (TODO)
 
 ## 📦 安装
+
+### 通过 uv 安装
+
+```bash
+# 若未安装 uv，可先安装 uv
+pip install uv
+# 安装 pypile 工具(希望在命令行中独立使用请这样安装)
+uv tool install pypile
+# 安装 pypile 包(希望在Python脚本中使用请这样安装)
+uv install pypile
+```
 
 ### 使用 pip 安装
 
@@ -29,51 +40,140 @@ pypile 是一个用于桥梁基础结构空间静力分析的 Python 包，其�
 pip install pypile
 ```
 
-### 从源代码安装
-
-```bash
-git clone https://github.com/ganansuan647/pypile.git
-cd pypile
-pip install -e .
-```
-
 ## 🔧 依赖项
 
-- Python 3.7+
-- NumPy >= 1.20.0
-- Matplotlib >= 3.3.0
-- Numba >= 0.53.0 (性能优化)
-- Plotly >= 5.0.0 (交互式可视化)
+- art>=6.4
+- loguru>=0.7.3
+- matplotlib>=3.7.5
+- numpy>=1.24.4
+- pydantic>=2.10.6
+- tabulate>=0.9.0
 
 ## 📘 使用方法
 
 ### 命令行界面
 
 ```bash
-# 基本分析
-bcad_pile input_file.dat
+usage: pypile [-h] [-f FILE] [-s] [-db] [-p] [-d] [-o] [-v] [-force FORCE FORCE FORCE FORCE FORCE FORCE] [-mode {replace,add}]
 
-# 带可视化的分析
-bcad_pile input_file.dat --visualize
+PyPile - 桩基础分析程序
+
+选项:
+  -h, --help            显示帮助信息并退出
+  -f FILE, --file FILE  指定输入数据文件（.dat格式）
+  -s, --select          通过文件选择器选择计算(✅)/验算(TODO)文件
+  -db, --debug          启用调试模式，输出详细日志
+  -p, --print           打印计算结果摘要
+  -d, --detail          打印详细计算结果
+  -o, --old             运行旧版BCAD_PILE程序
+  -v, --version         显示程序版本号并退出
+  -force FORCE FORCE FORCE FORCE FORCE FORCE, --force FORCE FORCE FORCE FORCE FORCE FORCE
+                        指定作用在(0,0)点的力 [FX, FY, FZ, MX, MY, MZ]
+  -mode {replace,add}, --mode {replace,add}
+                        设置力的作用模式：replace（替换）或add（添加）
 ```
 
-### Python API
+### 🌟 终端命令行示例（使用`uv tool install`安装）
+
+终端命令帮助可直接使用`pypile -h`查看
+
+**Case 1**:
+
+```bash
+# 直接运行，在后续的提示中输入文件路径进行默认分析
+pypile
+```
+
+**Case 2**:
+
+```bash
+# 指定输入文件路径进行分析
+pypile -f ./tests/Test-1-2.dat
+```
+
+**Case 3**:
+
+```bash
+# 指定输入文件路径并打印结果摘要
+pypile -f ./tests/Test-1-2.dat -p
+```
+
+**Case 4**:
+
+```bash
+# 指定输入文件路径并打印详细结果
+pypile -f ./tests/Test-1-2.dat -p -d
+```
+
+**Case 5**:
+
+```bash
+# 使用文件选择框选择文件，并打印结果
+pypile -s
+```
+
+**Case 6**:
+
+```bash
+# 使用原BCAD_PILE程序进行分析
+pypile -o
+```
+
+**Case 7**:
+
+```bash
+# 进行debug
+pypile -db
+```
+
+**Case 8**:
+
+```bash
+# 显示版本信息
+pypile -v
+```
+
+
+### 🌟 Python API 示例
 
 ```python
-from bcad_pile.core.computation import analyze_pile_foundation, extract_visualization_data
-from bcad_pile.visualization.plotter import plot_results
+from pypile import PileManager
+from pathlib import Path
+import numpy as np
 
-# 运行分析
-results = analyze_pile_foundation("input_file.dat")
+# 初始化桩基管理器
+pile = PileManager()
+# 读取数据文件
+pile.read_dat(Path("./tests/Test-1-2.dat"))
+    
+# 设置NumPy输出格式
+np.set_printoptions(linewidth=200, precision=2, suppress=True)
+# 查看基础刚度
+print(f"Pile stiffness matrix K:\n{pile.K}")
+# 查看指定桩的刚度
+# ino: int = 5
+# print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")
+    
+# 设置荷载
+force = np.array([22927.01, 0, 40702.94, 0.0, 320150.23, 0])
+np.set_printoptions(linewidth=200, precision=4, suppress=True)
+# 获取承台位移
+print(f"Cap displacement:\n{pile.disp_cap(force)}")
+# 获取各桩桩顶位移
+# print(f"Pile displacement:\n{pile.disp_piles(force)}")
 
-# 创建可视化
-vis_data = extract_visualization_data(results)
-plot_results(vis_data)
+# 计算基础反力，得到一个Dict，key是桩号(int)，value是PileResult对象
+pile_results = pile.eforce(force)
 
-# 创建交互式可视化
-from bcad_pile.visualization.interactive_view import create_interactive_visualization
-fig = create_interactive_visualization(vis_data)
-fig.show()
+# 生成刚度矩阵报告
+pile.stiffness_report()
+# 生成群桩基础报告
+pile.pile_group_report()
+# 生成最不利单桩报告
+pile.worst_pile_report()
+
+# 获取最不利单桩结果
+print(pile.worst_pile_force)
 ```
 
 ## 📄 输入文件格式
@@ -109,83 +209,80 @@ end
 end
 ```
 
-详细的输入文件说明可参考 `docs/input_format.md` 文件。
+### 终端输出示例
+
+```
+(∩｀-´)⊃━☆ﾟ.*･｡ﾟ  **正在读取输入信息**  【シ】
+
+(∩｀-´)⊃━☆ﾟ.*･｡ﾟ  **计算桩的变形因子**  [^_^]
+
+(∩｀-´)⊃━☆ﾟ.*･｡ﾟ  **计算桩的轴向刚度**  ^‿^
+
+(∩｀-´)⊃━☆ﾟ.*･｡ﾟ  **计算桩的侧向刚度**  ( ͡ʘ ͜ʖ ͡ʘ)
+
+㋡      **计算桩基承台的位移和内力**    [^_^]
+
+程序运行完成，刚度矩阵、群桩及最不利单桩报告已保存到 D:\pypile\tests\Test-1-1.out，所有桩验算结果已保存到 D:\pypile\tests\Test-1-1.pos。ಠ◡ಠ
+```
+
+## 📄 输出报告格式
+
+pypile 生成两种输出报告文件：
+
+1. `.out` 文件 - 包含刚度矩阵、群桩报告和最不利单桩报告
+2. `.pos` 文件 - 包含所有桩的验算结果详情
+
+输出报告示例：
+
+```
+-----------------------------------------------------------------------
+|    _ (`-.                    _ (`-.                          ('-.    |
+|   ( (OO  )                  ( (OO  )                       _(  OO)   |
+|  _.`     \   ,--.   ,--.   _.`     \   ,-.-')   ,--.      (,------.  |
+| (__...--''    \  `.'  /   (__...--''   |  |OO)  |  |.-')   |  .---'  |
+|  |  /  | |  .-')     /     |  /  | |   |  |  \  |  | OO )  |  |      |
+|  |  |_.' | (OO  \   /      |  |_.' |   |  |(_/  |  |`-' | (|  '--.   |
+|  |  .___.'  |   /  /\_     |  .___.'  ,|  |_.' (|  '---.'  |  .--'   |
+|  |  |       `-./  /.__)    |  |      (_|  |     |      |   |  `---.  |
+|  `--'         `--'         `--'        `--'     `------'   `------'  |
+|                                                                      |
+|                                                  Version:1.0.0, 2025 |
+|                                                      By: Lingyun Gou |
+-----------------------------------------------------------------------
+```
+
+后续内容包括桩基础刚度矩阵、群桩位移和内力计算结果以及最不利单桩验算结果。
 
 ## 🏗️ 项目结构
 
 ```
 pypile/
-├── bcad_pile/
+├── pypile/
 │   ├── __init__.py
-│   ├── main.py
-│   ├── core/
+│   ├── cli.py             # 命令行接口
+│   ├── pile_manager.py    # 桩基管理核心类
+│   ├── report.py          # 报告生成功能
+│   ├── models/
 │   │   ├── __init__.py
-│   │   ├── data.py         # 数据结构
-│   │   ├── reader.py       # 输入文件读取
-│   │   ├── writer.py       # 输出文件写入
-│   │   ├── computation.py  # 计算流程控制
-│   │   ├── stiffness.py    # 刚度计算
-│   │   ├── displacement.py # 位移计算
-│   │   └── forces.py       # 内力计算
-│   ├── utils/
-│   │   ├── __init__.py
-│   │   ├── matrix.py       # 矩阵操作
-│   │   └── math_helpers.py # 数学辅助函数
-│   └── visualization/
-│       ├── __init__.py
-│       ├── plotter.py      # 静态可视化
-│       └── interactive_view.py # 交互式可视化
-├── tests/                  # 测试文件
-├── examples/               # 示例文件
-├── docs/                   # 文档
-├── setup.py
+│   │   ├── arrange_model.py     # 排布模型
+│   │   ├── control_model.py     # 控制模型
+│   │   ├── no_simu_model.py     # 非模拟桩模型
+│   │   ├── pile_parser.py       # 桩基解析器
+│   │   ├── pile_results_model.py # 计算结果模型
+│   │   └── simu_pile_model.py   # 模拟桩模型
+│   └── original/          # 原始资源和参考
+├── tests/                 # 测试文件
+├── docs/                  # 文档
+├── examples/              # 示例文件
+├── dist/                  # 分发文件
+├── pyproject.toml         # 项目配置
 ├── LICENSE
 └── README.md
 ```
 
-## 🌟 示例
-
-### 基本分析示例
-
-```python
-from bcad_pile.core.computation import analyze_pile_foundation
-
-# 使用样例输入文件进行分析
-results = analyze_pile_foundation("examples/example1.dat")
-
-# 输出桩基础的整体刚度矩阵
-print("Foundation Stiffness Matrix:")
-print(results['stiffness_matrix'])
-
-# 输出第一根桩的位移
-print("Displacements of Pile 1:")
-print(results['pile_results'][0]['top_displacement'])
-```
-
-### 可视化示例
-
-```python
-from bcad_pile.core.computation import analyze_pile_foundation, extract_visualization_data
-from bcad_pile.visualization.plotter import plot_results
-
-# 分析并可视化
-results = analyze_pile_foundation("examples/example2.dat")
-vis_data = extract_visualization_data(results)
-plot_results(vis_data)
-```
-
-## 🌊 在多灾害分析中的应用
-
-BCAD_PILE 特别适合桥梁基础在复合灾害条件下的分析，包括：
-
-- **地震作用**：分析地震荷载下桩基础的响应
-- **冲刷影响**：模拟河床冲刷对桩基础稳定性的影响
-- **土壤液化**：评估土壤液化对桩基础承载力的削弱
-- **荷载组合**：分析多种灾害同时作用下的桩基础行为
-
 ## 👥 贡献指南
 
-欢迎对 BCAD_PILE 项目做出贡献！请参阅 `CONTRIBUTING.md` 文件了解贡献流程。
+欢迎对 PyPile 项目做出贡献！请积极提交 Issue，或者提交 Pull Request。
 
 ## 📜 许可证
 

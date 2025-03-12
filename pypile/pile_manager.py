@@ -1360,6 +1360,7 @@ class PileManager:
             if not fname.is_file():
                 print(f"未选择文件或文件 '{fname.stem}' 在路径 '{fname.parent.absolute()}' 下不存在，程序退出。")
                 return
+            print(self.welcome_message)
         else:
             if args.file:
                 fname = Path(args.file)
