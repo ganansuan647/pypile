@@ -10,6 +10,7 @@ __version__ = "0.1.0"
 
 from .models import PileModel, parse_pile_text
 from .pile_manager import PileManager
+from .cli import pypile_cli as pypile
 
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "PileModel",
     "parse_pile_text",
     "PileManager",
+    "pypile"
 ]

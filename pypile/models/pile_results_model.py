@@ -20,12 +20,12 @@ class PileTopResult(BaseModel):
     SZ: float = Field(..., description="Z轴旋转角(rad)")
     
     # 内力
-    NX: float = Field(..., description="X方向轴力(t)")
-    NY: float = Field(..., description="Y方向轴力(t)")
-    NZ: float = Field(..., description="Z方向轴力(t)")
-    MX: float = Field(..., description="X方向弯矩(t*m)")
-    MY: float = Field(..., description="Y方向弯矩(t*m)")
-    MZ: float = Field(..., description="Z方向弯矩(t*m)")
+    NX: float = Field(..., description="X方向轴力(kN)")
+    NY: float = Field(..., description="Y方向轴力(kN)")
+    NZ: float = Field(..., description="Z方向轴力(kN)")
+    MX: float = Field(..., description="X方向弯矩(kN*m)")
+    MY: float = Field(..., description="Y方向弯矩(kN*m)")
+    MZ: float = Field(..., description="Z方向弯矩(kN*m)")
 
 
 # 桩体节点结果模型
@@ -39,15 +39,15 @@ class PileNodeResult(BaseModel):
     SY: float = Field(..., description="Y轴旋转角(rad)")
     
     # 内力
-    NX: float = Field(..., description="X方向轴力(t)")
-    NY: float = Field(..., description="Y方向轴力(t)")
-    NZ: float = Field(..., description="Z方向轴力(t)")
-    MX: float = Field(..., description="X方向弯矩(t*m)")
-    MY: float = Field(..., description="Y方向弯矩(t*m)")
+    NX: float = Field(..., description="X方向轴力(kN)")
+    NY: float = Field(..., description="Y方向轴力(kN)")
+    NZ: float = Field(..., description="Z方向轴力(kN)")
+    MX: float = Field(..., description="X方向弯矩(kN*m)")
+    MY: float = Field(..., description="Y方向弯矩(kN*m)")
     
     # 土压力
-    PSX: float = Field(..., description="X方向土压力(t/m2)")
-    PSY: float = Field(..., description="Y方向土压力(t/m2)")
+    PSX: float = Field(..., description="X方向土压力(kN/m2)")
+    PSY: float = Field(..., description="Y方向土压力(kN/m2)")
 
 
 # 桩体计算结果模型

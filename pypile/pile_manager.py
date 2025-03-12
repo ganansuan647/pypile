@@ -1008,7 +1008,7 @@ class PileManager:
             self.disp_piles(force)
         
         # 导入结果模型
-        from models.pile_results_model import PileResult, PileTopResult, PileNodeResult
+        from .models.pile_results_model import PileResult, PileTopResult, PileNodeResult
         
         results = {}
         # 计算每个桩的位移和内力
@@ -1283,7 +1283,6 @@ if __name__ == "__main__":
     # print(f"Pile displacement:\n{pile.disp_piles(force)}")
     
     pile_results = pile.eforce(force)
-    # print(f"Pile forces:\n{pile_results.results[1]}")
     # for pile_id,result in pile_results.items():
     #     reaction = "NZ"
     #     print(f"Pile {pile_id} at {result.coordinate}, \t{result.top_result.model_fields[reaction].description}:{getattr(result.top_result, reaction):.4e}")
