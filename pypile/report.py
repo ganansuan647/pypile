@@ -353,7 +353,7 @@ def pile_group_report(pile_results: Dict[int, PileResult]) -> str:
         ]
         force_data.append(row)
     
-    report += "### 力和转角\n"
+    report += "### 力和弯矩\n"
     report += tabulate(force_data, headers=force_headers, tablefmt="grid", numalign="right", stralign="center") + "\n\n"
     
     # 统计分析

@@ -28,10 +28,10 @@ PyPile 是一个用于桥梁基础结构空间静力分析的 Python 包，其�
 ```bash
 # 若未安装 uv，可先安装 uv
 pip install uv
-# 安装 pypile 工具(希望在命令行中独立使用请这样安装)
+# 安装 pypile 包(这样会安装到当前激活的虚拟环境中)
+uv pip install pypile
+# 安装 pypile 工具(这样会作为一个独立工具安装，只要配置了环境变量，就可在任何虚拟环境中使用)
 uv tool install pypile
-# 安装 pypile 包(希望在Python脚本中使用请这样安装)
-uv install pypile
 ```
 
 ### 使用 pip 安装
@@ -67,7 +67,7 @@ PyPile - 桩基础分析程序
   -d, --detail          打印详细计算结果
   -o, --old             运行旧版BCAD_PILE程序
   -v, --version         显示程序版本号并退出
-  -force FORCE FORCE FORCE FORCE FORCE FORCE, --force FORCE FORCE FORCE FORCE FORCE FORCE
+  -force FX, FY, FZ MX MY MZ, --force FX, FY, FZ MX MY MZ
                         指定作用在(0,0)点的力 [FX, FY, FZ, MX, MY, MZ]
   -mode {replace,add}, --mode {replace,add}
                         设置力的作用模式：replace（替换）或add（添加）

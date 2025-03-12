@@ -1353,7 +1353,7 @@ class PileManager:
         parser.add_argument('-d', '--detail', action='store_true', help='打印详细计算结果')
         parser.add_argument('-o', '--old', action='store_true', help='运行旧版BCAD_PILE程序')
         parser.add_argument('-v', '--version', action='version', version=f'PyPile {__version__}')
-        parser.add_argument('-force', '--force', type=float, nargs=6, help='作用在(0,0)点的力 [FX, FY, FZ, MX, MY, MZ]')
+        parser.add_argument('-force', '--force', type=float, nargs=6, metavar=('FX', 'FY', 'FZ', 'MX', 'MY', 'MZ'), help='作用在(0,0)点的力和力矩 [FX, FY, FZ, MX, MY, MZ]')
         parser.add_argument('-mode', '--mode', choices=['replace', 'add'], default='replace', help='力的作用模式：替换或添加')
         
         # 解析命令行参数
