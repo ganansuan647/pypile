@@ -1,29 +1,32 @@
 [project]
 name = "pypile"
-version = "0.1.0"
+version = "1.0.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 dependencies = [
     "art>=6.4",
     "loguru>=0.7.3",
-    "matplotlib>=3.10.1",
-    "numpy>=2.2.3",
-    "plotly>=6.0.0",
+    "matplotlib>=3.7.5",
+    "numpy>=1.24.4",
     "pydantic>=2.10.6",
     "tabulate>=0.9.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project.scripts]
 pypile = "pypile.cli:pypile_cli"
 
 [dependency-groups]
 dev = [
-    "meson>=1.7.0",
-    "ninja>=1.11.1.3",
+    "meson",
+    "ninja",
 ]
 
 [tool.uv]
 dev-dependencies = [
-    "pytest>=8.3.5",
+    "pytest",
 ]

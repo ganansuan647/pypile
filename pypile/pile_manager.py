@@ -1268,7 +1268,7 @@ class PileManager:
             if isinstance(output_file, str):
                 output_file = Path(output_file)
             mode = 'a' if append else 'w'
-            with output_file.open(mode) as f:
+            with output_file.open(mode, encoding='utf-8') as f:
                 f.write(output)
 
     def stiffness_report(self, print_in_cli=True, output_file:Union[Path,str] = None, append = False) -> str:
@@ -1281,7 +1281,7 @@ class PileManager:
             if isinstance(output_file, str):
                 output_file = Path(output_file)
             mode = 'a' if append else 'w'
-            with output_file.open(mode) as f:
+            with output_file.open(mode, encoding='utf-8') as f:
                 f.write(output)
 
     def pile_group_report(self, print_in_cli=True, output_file:Union[Path,str] = None, append = False) -> str:
@@ -1294,7 +1294,7 @@ class PileManager:
             if isinstance(output_file, str):
                 output_file = Path(output_file)
             mode = 'a' if append else 'w'
-            with output_file.open(mode) as f:
+            with output_file.open(mode, encoding='utf-8') as f:
                 f.write(output)
         
         return output
@@ -1312,7 +1312,7 @@ class PileManager:
             if isinstance(output_file, str):
                 output_file = Path(output_file)
             mode = 'a' if append else 'w'
-            with output_file.open(mode) as f:
+            with output_file.open(mode, encoding='utf-8') as f:
                 f.write(output)
         
         return output
@@ -1375,10 +1375,10 @@ class PileManager:
         # 构建输入输出文件名
         output_filename = fname.with_suffix('.out')
         pos_filename = fname.with_suffix('.pos')
-        message = self.welcome_message.split("\nWelcome to use the PyPile program !!")[0]
-        with open(output_filename,'w') as f:
+        message = self.welcome_message.split("Welcome to use the PyPile program !!")[0]
+        with open(output_filename,'w', encoding='utf-8') as f:
             f.write(message)
-        with open(pos_filename,'w') as f:
+        with open(pos_filename,'w', encoding='utf-8') as f:
             f.write(message)
 
         
@@ -1398,8 +1398,7 @@ class PileManager:
         # 计算桩的侧向刚度
         print(f"{art.art('wizard2')}  **计算桩的侧向刚度**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
         self.pstiff()
-        if args.print:
-            print_flag = True
+        print_flag = True if args.print else False
         self.stiffness_report(print_in_cli=print_flag,output_file=output_filename,append=True)
 
         if self.jctr == 1 or args.force:
@@ -1434,8 +1433,9 @@ class PileManager:
                 f = list(self.force)
                 print(f"施加于承台中心(0,0)处的合力为({f[0]:12.4e}kN, {f[1]:12.4e}kN, {f[2]:12.4e}kN, {f[3]:12.4e}kN·m, {f[4]:12.4e}kN·m, {f[5]:12.4e}kN·m)\n")
                 print(f"承台位移:({d[0]:12.4e}m, {d[1]:12.4e}m, {d[2]:12.4e}m, {d[3]:12.4e}rad, {d[4]:12.4e}rad, {d[5]:12.4e}rad)\n")
-                if args.detail:
-                    detail_flag = True
+            
+            detail_flag = True if args.detail and args.print else False
+
             self.pile_group_report(print_in_cli=detail_flag,output_file=output_filename,append=True)
             self.worst_pile_report(print_in_cli=detail_flag,output_file=output_filename,append=True)
             self.pile_results_report(print_in_cli=False,output_file=pos_filename,append=True)
@@ -1449,7 +1449,6 @@ if __name__ == "__main__":
     np.set_printoptions(linewidth=200, precision=2, suppress=True)
     # print(f"Pile stiffness matrix K:\n{pile.K}")
     
-
     np.testing.assert_allclose(pile.K, [
         [ 3.75361337e+06,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 1.65098740e+07,  0.00000000e+00],
         [ 0.00000000e+00,  3.68517766e+06,  0.00000000e+00, -1.63086648e+07, 0.00000000e+00,  6.98491931e-10],
@@ -1462,21 +1461,23 @@ if __name__ == "__main__":
     # ino = 5
     # print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")
     
-    # np.set_printoptions(linewidth=200, precision=4, suppress=True)
-    # force = np.array([22927.01, 0, 40702.94, 0.0, -320150.23, 0])
+    np.set_printoptions(linewidth=200, precision=4, suppress=True)
+    force = np.array([22927.01, 0, 40702.94, 0.0, -320150.23, 0])
 
-    # print(f"Cap displacement:\n{pile.disp_cap(force)}")
+    print(f"Cap displacement:\n{pile.disp_cap(force)}")
     # print(f"Pile displacement:\n{pile.disp_piles(force)}")
     
-    # pile_results = pile.eforce(force)
+    pile_results = pile.eforce(force)
     # pile.print_worst_pile_force()
 
-    # print(f"最不利单桩内力:{[f'{f:.1f}' for f in pile.worst_pile_force]}")
+    print(f"最不利单桩内力:{[f'{f:.1f}' for f in pile.worst_pile_force]}")
 
-    # print(stiffness_matrix_report(pile.K))
-    # print(pile_group_report(pile_results))
-    # print(pile_results_report(pile_results))
-    # pile.print_worst_pile_force()
+    pile.stiffness_report()
+    pile.pile_group_report()
+    pile.worst_pile_report()
+
+    print(pile.worst_pile_force)
+
     # for pile_id,result in pile_results.items():
     #     reaction = "NZ"
     #     print(f"Pile {pile_id} at {result.coordinate}, \t{result.top_result.model_fields[reaction].description}:{getattr(result.top_result, reaction):.4e}")
