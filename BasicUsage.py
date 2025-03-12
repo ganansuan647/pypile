@@ -14,6 +14,8 @@ if __name__ == "__main__":
     np.set_printoptions(linewidth=200, precision=2, suppress=True)
     # 使用pile.K查看基础刚度
     print(f"Pile stiffness matrix K:\n{pile.K}")
+    # 使用pile.K_SAP查看按照Sap2000中Coupled Spring的刚度格式
+    print(f"Pile stiffness matrix K_SAP:\n{pile.K_SAP}")
     # 使用pile.K_pile(桩号)查看指定桩的刚度
     # ino:int = 5
     # print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")

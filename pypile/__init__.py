@@ -6,7 +6,7 @@ This package provides tools to analyze pile foundations of bridge substructures.
 Converted from the original Fortran pypile program.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 from .models import PileModel, parse_pile_text
 from .pile_manager import PileManager

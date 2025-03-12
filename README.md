@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![版本](https://img.shields.io/badge/版本-1.0.0-blue)
+![版本](https://img.shields.io/badge/版本-1.0.1-blue)
 ![Python](https://img.shields.io/badge/Python-3.9+-green)
 ![许可证](https://img.shields.io/badge/许可证-GPL--3.0-orange)
 
@@ -150,6 +150,9 @@ pile.read_dat(Path("./tests/Test-1-2.dat"))
 np.set_printoptions(linewidth=200, precision=2, suppress=True)
 # 查看基础刚度
 print(f"Pile stiffness matrix K:\n{pile.K}")
+# 查看按照Sap2000中Coupled Spring的刚度格式
+print(f"Pile stiffness matrix K_SAP:\n{pile.K_SAP}")
+
 # 查看指定桩的刚度
 # ino: int = 5
 # print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")
