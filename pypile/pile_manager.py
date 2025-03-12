@@ -928,6 +928,7 @@ class PileManager:
     @property
     def K_SAP(self):
         """计算桩基础的弹簧刚度,按照Sap2000的格式进行解析"""
+
         K_OLD = self.K
         # 坐标变换矩阵R_x(θ) = [[1, 0, 0],[0, cosθ, -sinθ],[0, sinθ, cosθ]]
         # 当θ=180时,便成为对角线[1,-1,-1]的对角阵
@@ -940,8 +941,9 @@ class PileManager:
 
         U1,U2,U3,R1,R2,R3 = 0,1,2,3,4,5
         K_SAP = [K[U1, U1], K[U1, U2], K[U2, U2], K[U1, U3], K[U2, U3], K[U3, U3],
-                 K[U1, R1], K[U1, R2], K[U2, R1], K[U2, R2], K[U3, R1], K[U3, R2],
-                 K[R1, R1], K[R1, R2], K[R2, R2], K[R1, R3], K[R2, R3], K[R3, R3]]
+                 K[U1, R1], K[U2, R1], K[U3, R1], K[R1, R1], K[U1, R2], K[U2, R2],
+                 K[U3, R2], K[R1, R2], K[R2, R2], K[U1, R3], K[U2, R3], K[U3, R3],
+                 K[R1, R3], K[R2, R3], K[R3, R3]]
         return K_SAP
 
     def K_pile(self, ino:int = None):
