@@ -10,13 +10,14 @@ import numpy as np
 import math
 from pathlib import Path
 from loguru import logger
+from typing import Union
 
 if __name__ == "__main__":
     from models import PileModel
-    from models import PileResult, PileTopResult, PileNodeResult
+    from models import PileResult, PileTopResult, PileNodeResult, ForcePoint
 else:
     from .models import PileModel
-    from .models import PileResult, PileTopResult, PileNodeResult
+    from .models import PileResult, PileTopResult, PileNodeResult, ForcePoint
 
 try:
     from . import __version__
@@ -109,14 +110,13 @@ class PileManager:
         welcome_message = create_bordered_ascii(ascii_art, __version__)
         return welcome_message
 
-    def calculate_total_force(self, force_points):
+    def calculate_total_force(self, force_points:list[ForcePoint]):
         """计算外部荷载的合力"""
         force = np.zeros(6, dtype=float)
         
         for point in force_points:
-            x, y = point[:2]
-            local_force = point[2:]
-            transformation_matrix = self.tmatx(x, y)
+            local_force = np.array([point.FX,point.FY,point.FZ,point.MX,point.MY,point.MZ],dtype=float)
+            transformation_matrix = self.tmatx(point.X, point.Y)
             global_force = np.dot(transformation_matrix.T, local_force)
             force += global_force
         
@@ -270,7 +270,6 @@ class PileManager:
         
         Args:
             file_path: 输入文件路径
-            force: 外部荷载数组
             
         Returns:
             PileModel: 解析后的桩基础数据
@@ -1167,8 +1166,11 @@ class PileManager:
         parser = argparse.ArgumentParser(description='PyPile - 桩基础分析程序')
         parser.add_argument('-f', '--file', type=str, help='输入数据文件名（.dat格式）')
         parser.add_argument('-d', '--debug', action='store_true', help='启用调试模式')
-        parser.add_argument('-o', '--old', type=str, help='运行旧版BCAD_PILE程序:')
+        parser.add_argument('-p', '--print', action='store_true', help='打印计算结果')
+        parser.add_argument('-o', '--old', action='store_true', help='运行旧版BCAD_PILE程序')
         parser.add_argument('-v', '--version', action='version', version=f'PyPile {__version__}')
+        parser.add_argument('-force', '--force', type=float, nargs=6, help='作用在(0,0)点的力 [FX, FY, FZ, MX, MY, MZ]')
+        parser.add_argument('-mode', '--mode', choices=['replace', 'add'], default='replace', help='力的作用模式：替换或添加')
         
         # 解析命令行参数
         args = parser.parse_args()
@@ -1221,11 +1223,31 @@ class PileManager:
         # 计算桩的侧向刚度
         print(f"{art.art('wizard2')}  **计算桩的侧向刚度**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
         self.pstiff()
-
-        if self.jctr == 1:
+        if args.print:
+            np.set_printoptions(linewidth=200, precision=2, suppress=True)
+            print(f"Pile stiffness matrix K:\n{pile.K}")
+        
+        if self.jctr == 1 or args.force:
             # 计算桩基承台的位移和内力
             print(f"{art.art(f'happy{random.randint(1, 27)}')}\t**计算桩基承台的位移和内力**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
+            if args.force:
+                force_point:ForcePoint = ForcePoint(0,0,*args.force)
+                if args.mode == 'replace':
+                    self.Pile.control.force_points = [force_point]
+                elif args.mode == 'add':
+                    self.Pile.control.force_points.append(force_point)
+                
+                self.calculate_total_force(self.Pile.control.force_points)
+                
             self.eforce()
+            
+            if args.print:
+                d = list(pile.disp_cap(force))
+                f = list(self.force)
+                print(f"施加于承台中心(0,0)处的合力为({f[0]:12.4e}kN, {f[1]:12.4e}kN, {f[2]:12.4e}kN, {f[3]:12.4e}kN·m, {f[4]:12.4e}kN·m, {f[5]:12.4e}kN·m)\n")
+                print(f"承台位移:({d[0]:12.4e}m, {d[1]:12.4e}m, {d[2]:12.4e}m, {d[3]:12.4e}rad, {d[4]:12.4e}rad, {d[5]:12.4e}rad)\n")
+                
+                # 输出最不利单桩内力
 
         # 关闭文件
         self.input_file.close()
@@ -1236,7 +1258,7 @@ class PileManager:
 
 if __name__ == "__main__":
     pile = PileManager(debug = True)
-    pile.read_dat(Path("tests/Test-1-2.dat"))
+    pile.read_dat(Path("tests/Test-1-1.dat"))
     
     np.set_printoptions(linewidth=200, precision=2, suppress=True)
     # print(f"Pile stiffness matrix K:\n{pile.K}")

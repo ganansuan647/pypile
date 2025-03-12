@@ -10,6 +10,7 @@ Original by: CAD Research Group, Dept. of Bridge Engr.,Tongji University
 
 import numpy as np
 import math
+from pathlib import Path
 
 __version__ = "1.10"
 
@@ -109,7 +110,7 @@ this program, please do not hesitate to write to :
        +    B     B     C    C    A     A    D    D        P           I      L         E          +
        +    BBBBBB       CCCC     A     A    DDDDD         P          III     LLLLLL    EEEEEEE    +
        +                                                                                           +
-       +                        Copyright 2025, Version {__version__}  modified by Lingyun Gou                  +
+       +                        Copyright 2025, Version {__version__}  modified by Lingyun Gou              +
        ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         Welcome to use the BCAD_PILE program !!
@@ -124,11 +125,6 @@ this program, please do not hesitate to write to :
                                                                     Shanghai 200092
                                                                     P.R. of China
 """)
-
-    def f_name(self, filename, ext):
-        """组合文件名和扩展名"""
-        base_name = filename.strip()
-        return base_name + ext
 
     def r_data(
         self, jctr: int, ino: int, force: np.ndarray
@@ -1603,12 +1599,12 @@ this program, please do not hesitate to write to :
 
         # 读取数据文件名
         print("\n       Please enter data filename:")
-        fname = input().strip()
+        fname = Path(input("请输入数据文件名(.dat格式):")).with_suffix('.dat')
 
         # 构建输入输出文件名
-        input_filename = self.f_name(fname, ".dat")
-        output_filename = self.f_name(fname, ".out")
-        pos_filename = self.f_name(fname, ".pos")
+        input_filename = fname
+        output_filename = fname.with_suffix(".out")
+        pos_filename = fname.with_suffix(".pos")
 
         # 打开文件
         self.input_file = open(input_filename, "r")
