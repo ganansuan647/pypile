@@ -1,7 +1,7 @@
 [project]
 name = "pypile"
 version = "1.0.0"
-description = "Add your description here"
+description = " Bridge Foundation Spatial Static Analysis Program（桥梁基础结构空间静力分析程序）"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
