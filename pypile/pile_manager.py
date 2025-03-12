@@ -15,9 +15,11 @@ from typing import Union
 if __name__ == "__main__":
     from models import PileModel
     from models import PileResult, PileTopResult, PileNodeResult, ForcePoint
+    from report import stiffness_matrix_report, pile_results_report, pile_group_report, worst_pile_report
 else:
     from .models import PileModel
     from .models import PileResult, PileTopResult, PileNodeResult, ForcePoint
+    from .report import stiffness_matrix_report, pile_results_report, pile_group_report, worst_pile_report
 
 try:
     from . import __version__
@@ -112,15 +114,15 @@ class PileManager:
 
     def calculate_total_force(self, force_points:list[ForcePoint]):
         """计算外部荷载的合力"""
-        force = np.zeros(6, dtype=float)
+        self.force = np.zeros(6, dtype=float)
         
         for point in force_points:
             local_force = np.array([point.FX,point.FY,point.FZ,point.MX,point.MY,point.MZ],dtype=float)
             transformation_matrix = self.tmatx(point.X, point.Y)
             global_force = np.dot(transformation_matrix.T, local_force)
-            force += global_force
+            self.force += global_force
         
-        return force
+        return self.force
 
     def init_parameters(self, Pile: PileModel):
         """初始化参数"""
@@ -1007,9 +1009,6 @@ class PileManager:
         if not hasattr(self, 'duk'):
             self.disp_piles(force)
         
-        # 导入结果模型
-        from .models.pile_results_model import PileResult, PileTopResult, PileNodeResult
-        
         results = {}
         # 计算每个桩的位移和内力
         for k in range(self.pnum):
@@ -1132,8 +1131,21 @@ class PileManager:
             # 创建各节点结果
             nodes = []
             for i in range(nsum+1):
+                # 计算桩在该点的直径
+                if zh[i] <= zg:
+                    diameter = self.dof[k, 0]  # 地上段直径
+                else:
+                    # 在地下段找到对应的直径
+                    for j, depth in enumerate(self.hbl[k]):
+                        if zh[i] - zg <= depth:
+                            diameter = self.dob[k, j]
+                            break
+                    else:
+                        diameter = self.dob[k, -1]  # 如果超过最大深度，使用最后一个直径
+
                 node = PileNodeResult(
                     Z=zh[i],
+                    D=diameter,
                     UX=fx[i, 0], UY=fy[i, 0],
                     SX=fy[i, 1], SY=fx[i, 1],
                     NX=fx[i, 2], NY=fy[i, 2], NZ=fz[i],
@@ -1153,9 +1165,158 @@ class PileManager:
             
             # 保存结果
             results[k] = pile_result
-        
-        return results
+
+        self.pile_results = results
+        return self.pile_results
     
+    def get_worst_pile_force(self) -> dict:
+        """
+        计算最不利单桩内力
+        
+        Returns:
+            dict: 包含最不利桩号和相应内力信息的字典
+        """
+        # 确保已经计算了桩的内力
+        if not hasattr(self, 'duk'):
+            self.disp_piles(self.force)
+        
+        # 获取所有桩的内力结果
+        pile_results = self.eforce()
+        
+        # 初始化最不利内力结果
+        worst_forces = {
+            "axial": {"max": 0.0, "pile": -1, "value": 0.0},
+            "lateral_x": {"max": 0.0, "pile": -1, "value": 0.0},
+            "lateral_y": {"max": 0.0, "pile": -1, "value": 0.0},
+            "moment_x": {"max": 0.0, "pile": -1, "value": 0.0},
+            "moment_y": {"max": 0.0, "pile": -1, "value": 0.0},
+            "torsion": {"max": 0.0, "pile": -1, "value": 0.0},
+            "combined": {"max": 0.0, "pile": -1, "values": []},
+            "pile_results": pile_results,
+        }
+        
+        # 遍历每根桩，寻找最不利内力
+        for pile_num, result in pile_results.items():
+            # 获取桩顶内力
+            top = result.top_result
+            
+            # 计算轴向力的绝对值
+            nz_abs = abs(top.NZ)
+            if nz_abs > worst_forces["axial"]["max"]:
+                worst_forces["axial"]["max"] = nz_abs
+                worst_forces["axial"]["pile"] = pile_num
+                worst_forces["axial"]["value"] = top.NZ
+            
+            # X方向侧向力
+            nx_abs = abs(top.NX)
+            if nx_abs > worst_forces["lateral_x"]["max"]:
+                worst_forces["lateral_x"]["max"] = nx_abs
+                worst_forces["lateral_x"]["pile"] = pile_num
+                worst_forces["lateral_x"]["value"] = top.NX
+            
+            # Y方向侧向力
+            ny_abs = abs(top.NY)
+            if ny_abs > worst_forces["lateral_y"]["max"]:
+                worst_forces["lateral_y"]["max"] = ny_abs
+                worst_forces["lateral_y"]["pile"] = pile_num
+                worst_forces["lateral_y"]["value"] = top.NY
+            
+            # X方向弯矩
+            mx_abs = abs(top.MX)
+            if mx_abs > worst_forces["moment_x"]["max"]:
+                worst_forces["moment_x"]["max"] = mx_abs
+                worst_forces["moment_x"]["pile"] = pile_num
+                worst_forces["moment_x"]["value"] = top.MX
+            
+            # Y方向弯矩
+            my_abs = abs(top.MY)
+            if my_abs > worst_forces["moment_y"]["max"]:
+                worst_forces["moment_y"]["max"] = my_abs
+                worst_forces["moment_y"]["pile"] = pile_num
+                worst_forces["moment_y"]["value"] = top.MY
+            
+            # 扭矩
+            mz_abs = abs(top.MZ)
+            if mz_abs > worst_forces["torsion"]["max"]:
+                worst_forces["torsion"]["max"] = mz_abs
+                worst_forces["torsion"]["pile"] = pile_num
+                worst_forces["torsion"]["value"] = top.MZ
+            
+            # 计算综合评价指标（采用内力平方和）
+            combined_value = (nz_abs**2 + nx_abs**2 + ny_abs**2 + 
+                             mx_abs**2 + my_abs**2 + mz_abs**2)**0.5
+            
+            if combined_value > worst_forces["combined"]["max"]:
+                worst_forces["combined"]["max"] = combined_value
+                worst_forces["combined"]["pile"] = pile_num
+                worst_forces["combined"]["values"] = [top.NZ, top.NX, top.NY, top.MX, top.MY, top.MZ]
+                
+        return worst_forces
+    
+    @property
+    def worst_pile_force(self):
+        worst_forces = self.get_worst_pile_force()
+        return worst_forces["combined"]["values"]
+    
+    def worst_pile_report(self, print_in_cli=True, output_file:Union[Path,str] = None, append = False) -> str:
+        
+        output = worst_pile_report(self.get_worst_pile_force())
+        if print_in_cli:
+            print(output)
+        
+        if output_file:
+            if isinstance(output_file, str):
+                output_file = Path(output_file)
+            mode = 'a' if append else 'w'
+            with output_file.open(mode) as f:
+                f.write(output)
+
+    def stiffness_report(self, print_in_cli=True, output_file:Union[Path,str] = None, append = False) -> str:
+        
+        output = stiffness_matrix_report(self.K)
+        if print_in_cli:
+            print(output)
+        
+        if output_file:
+            if isinstance(output_file, str):
+                output_file = Path(output_file)
+            mode = 'a' if append else 'w'
+            with output_file.open(mode) as f:
+                f.write(output)
+
+    def pile_group_report(self, print_in_cli=True, output_file:Union[Path,str] = None, append = False) -> str:
+        
+        output = pile_group_report(self.pile_results)
+        if print_in_cli:
+            print(output)
+        
+        if output_file:
+            if isinstance(output_file, str):
+                output_file = Path(output_file)
+            mode = 'a' if append else 'w'
+            with output_file.open(mode) as f:
+                f.write(output)
+        
+        return output
+
+    def pile_results_report(self, print_in_cli=True, output_file:Union[Path,str] = None, append = False) -> str:
+        
+        if not hasattr(self, 'pile_results'):
+            self.eforce()
+
+        output = pile_results_report(self.pile_results)
+        if print_in_cli:
+            print(output)
+        
+        if output_file:
+            if isinstance(output_file, str):
+                output_file = Path(output_file)
+            mode = 'a' if append else 'w'
+            with output_file.open(mode) as f:
+                f.write(output)
+        
+        return output
+
     def cli(self) -> None:
         """运行程序的主函数，支持命令行参数"""
         import argparse
@@ -1164,9 +1325,11 @@ class PileManager:
         
         # 创建参数解析器
         parser = argparse.ArgumentParser(description='PyPile - 桩基础分析程序')
-        parser.add_argument('-f', '--file', type=str, help='输入数据文件名（.dat格式）')
-        parser.add_argument('-d', '--debug', action='store_true', help='启用调试模式')
+        parser.add_argument('-f', '--file', type=str, help='输入数据文件名（.dat格式)')
+        parser.add_argument('-s', '--select', action='store_true', help='选择计算文件')
+        parser.add_argument('-db', '--debug', action='store_true', help='启用调试模式')
         parser.add_argument('-p', '--print', action='store_true', help='打印计算结果')
+        parser.add_argument('-d', '--detail', action='store_true', help='打印详细计算结果')
         parser.add_argument('-o', '--old', action='store_true', help='运行旧版BCAD_PILE程序')
         parser.add_argument('-v', '--version', action='version', version=f'PyPile {__version__}')
         parser.add_argument('-force', '--force', type=float, nargs=6, help='作用在(0,0)点的力 [FX, FY, FZ, MX, MY, MZ]')
@@ -1188,24 +1351,36 @@ class PileManager:
         
         # 获取输入文件名
         fname: Path = Path("")
-        if args.file:
-            fname = Path(args.file)
+        if args.select:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            fname = Path(filedialog.askopenfilename(filetypes=[("计算文件(*.dat)", "*.dat"), ("验算文件(*.xlsx)", "*.xlsx")]))
+            if not fname.is_file():
+                print(f"未选择文件或文件 '{fname.stem}' 在路径 '{fname.parent.absolute()}' 下不存在，程序退出。")
+                return
         else:
-            # 如果未提供文件名参数，则交互式获取
-            print(self.welcome_message)
-            while not fname.is_file():
-                if fname.stem:
-                    print(f"文件 '{fname.stem}' 在路径 '{fname.parent.absolute()}' 下不存在！请检查后重试!")
-                
-                fname = Path(input("请输入数据文件名(.dat格式):")).with_suffix('.dat')
+            if args.file:
+                fname = Path(args.file)
+            else:
+                # 如果未提供文件名参数，则交互式获取
+                print(self.welcome_message)
+                while not fname.is_file():
+                    if fname.stem:
+                        print(f"文件 '{fname.stem}' 在路径 '{fname.parent.absolute()}' 下不存在！请检查后重试!")
+                    
+                    fname = Path(input("请输入数据文件名(.dat格式):")).with_suffix('.dat')
         
         # 构建输入输出文件名
         output_filename = fname.with_suffix('.out')
         pos_filename = fname.with_suffix('.pos')
-        
-        # 打开文件
-        self.output_file = open(output_filename, 'w')
-        self.pos_file = open(pos_filename, 'w')
+        message = self.welcome_message.split("\nWelcome to use the PyPile program !!")[0]
+        with open(output_filename,'w') as f:
+            f.write(message)
+        with open(pos_filename,'w') as f:
+            f.write(message)
+
         
         # 初始化数据
         print(f"\n{art.art('wizard2')}  **正在读取输入信息**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
@@ -1224,37 +1399,48 @@ class PileManager:
         print(f"{art.art('wizard2')}  **计算桩的侧向刚度**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
         self.pstiff()
         if args.print:
-            np.set_printoptions(linewidth=200, precision=2, suppress=True)
-            print(f"Pile stiffness matrix K:\n{pile.K}")
-        
+            print_flag = True
+        self.stiffness_report(print_in_cli=print_flag,output_file=output_filename,append=True)
+
         if self.jctr == 1 or args.force:
             # 计算桩基承台的位移和内力
             print(f"{art.art(f'happy{random.randint(1, 27)}')}\t**计算桩基承台的位移和内力**\t{art.art(f'happy{random.randint(1, 27)}')}\n")
             if args.force:
-                force_point:ForcePoint = ForcePoint(0,0,*args.force)
+                force_point: ForcePoint = ForcePoint(
+                    X=0, Y=0,
+                    FX=args.force[0],
+                    FY=args.force[1],
+                    FZ=args.force[2],
+                    MX=args.force[3],
+                    MY=args.force[4],
+                    MZ=args.force[5]
+                )
+                if hasattr(self.Pile.control, "force_points"):
+                    self.force_points = self.Pile.control.force_points
+                else:
+                    self.force_points = []
+
                 if args.mode == 'replace':
-                    self.Pile.control.force_points = [force_point]
+                    self.force_points = [force_point]
                 elif args.mode == 'add':
-                    self.Pile.control.force_points.append(force_point)
+                    self.force_points.append(force_point)
                 
-                self.calculate_total_force(self.Pile.control.force_points)
+                self.calculate_total_force(self.force_points)
                 
             self.eforce()
             
             if args.print:
-                d = list(pile.disp_cap(force))
+                d = list(self.disp_cap(self.force))
                 f = list(self.force)
                 print(f"施加于承台中心(0,0)处的合力为({f[0]:12.4e}kN, {f[1]:12.4e}kN, {f[2]:12.4e}kN, {f[3]:12.4e}kN·m, {f[4]:12.4e}kN·m, {f[5]:12.4e}kN·m)\n")
                 print(f"承台位移:({d[0]:12.4e}m, {d[1]:12.4e}m, {d[2]:12.4e}m, {d[3]:12.4e}rad, {d[4]:12.4e}rad, {d[5]:12.4e}rad)\n")
-                
-                # 输出最不利单桩内力
+                if args.detail:
+                    detail_flag = True
+            self.pile_group_report(print_in_cli=detail_flag,output_file=output_filename,append=True)
+            self.worst_pile_report(print_in_cli=detail_flag,output_file=output_filename,append=True)
+            self.pile_results_report(print_in_cli=False,output_file=pos_filename,append=True)
 
-        # 关闭文件
-        self.input_file.close()
-        self.output_file.close()
-        self.pos_file.close()
-
-        print(f"程序运行完成，结果已保存到 {output_filename} 和 {pos_filename} 文件中。{art.art(f'happy{random.randint(1, 27)}')}\n")
+        print(f"程序运行完成，刚度矩阵、群桩及最不利单桩报告已保存到 {output_filename}，所有桩验算结果已保存到 {pos_filename}。{art.art(f'happy{random.randint(1, 27)}')}\n")
 
 if __name__ == "__main__":
     pile = PileManager(debug = True)
@@ -1276,13 +1462,21 @@ if __name__ == "__main__":
     # ino = 5
     # print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")
     
-    np.set_printoptions(linewidth=200, precision=4, suppress=True)
-    force = np.array([22927.01, 0, 40702.94, 0.0, 320150.23, 0])
+    # np.set_printoptions(linewidth=200, precision=4, suppress=True)
+    # force = np.array([22927.01, 0, 40702.94, 0.0, -320150.23, 0])
 
     # print(f"Cap displacement:\n{pile.disp_cap(force)}")
     # print(f"Pile displacement:\n{pile.disp_piles(force)}")
     
-    pile_results = pile.eforce(force)
+    # pile_results = pile.eforce(force)
+    # pile.print_worst_pile_force()
+
+    # print(f"最不利单桩内力:{[f'{f:.1f}' for f in pile.worst_pile_force]}")
+
+    # print(stiffness_matrix_report(pile.K))
+    # print(pile_group_report(pile_results))
+    # print(pile_results_report(pile_results))
+    # pile.print_worst_pile_force()
     # for pile_id,result in pile_results.items():
     #     reaction = "NZ"
     #     print(f"Pile {pile_id} at {result.coordinate}, \t{result.top_result.model_fields[reaction].description}:{getattr(result.top_result, reaction):.4e}")

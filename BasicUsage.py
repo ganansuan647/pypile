@@ -40,10 +40,16 @@ if __name__ == "__main__":
         # 各桩顶轴力
         print(f"Pile {pile_id} at {result.coordinate}, \t{result.top_result.model_fields[reaction].description}:{getattr(result.top_result, reaction):.4e}")
 
-    # for node in pile_results[0].nodes:
-    #     reaction = "MY"   # 对应弯矩
-    #     # 第1根桩弯矩沿桩身的分布
-    #     print(f"z:{node.Z:.1f}m {node.model_fields[reaction].description}:{getattr(node, reaction):.4e}")
+    for node in pile_results[0].nodes:
+        reaction = "MY"   # 对应弯矩
+        # 第1根桩弯矩沿桩身的分布
+        print(f"z:{node.Z:.1f}m {node.model_fields[reaction].description}:{getattr(node, reaction):.4e}")
+
+    可以查看最不利单桩报告
+    pile.print_worst_pile_force()
+    也可以调用pile.worst_pile_force属性直接拿到最不利单桩结果
+    print(f"最不利单桩内力:{[f'{f:.1f}' for f in pile.worst_pile_force]}")
 
     # 在终端中调用
     # use_cli()
+    

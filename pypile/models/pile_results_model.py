@@ -31,6 +31,7 @@ class PileTopResult(BaseModel):
 # 桩体节点结果模型
 class PileNodeResult(BaseModel):
     Z: float = Field(..., description="Z坐标(m)")
+    D: float = Field(..., description="桩的直径(m)")
     
     # 位移
     UX: float = Field(..., description="X方向位移(m)")
