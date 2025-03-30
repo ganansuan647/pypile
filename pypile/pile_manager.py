@@ -694,7 +694,7 @@ class PileManager:
 
         logger.debug("Calculating lateral stiffness of piles...")
         # 桩单元刚度
-        self.esp = np.zeros((self.N_max_pile**2, 6), dtype=float)
+        self.esp = np.zeros(((self.pnum + self.snum) * 6, 6), dtype=float)
         
         for k in range(self.pnum):
             # 如果桩无地下段，使用单位矩阵
@@ -753,7 +753,7 @@ class PileManager:
             # 保存桩的单元刚度
             for i in range(6):
                 for j in range(6):
-                    self.esp[(k-1)*6+i, j] = ke[i, j]
+                    self.esp[k*6+i, j] = ke[i, j]
         
         logger.success("Lateral stiffness of piles calculated!")
         return self.esp
@@ -896,7 +896,7 @@ class PileManager:
             a = np.zeros((6, 6), dtype=float)
             for i in range(6):
                 for j in range(6):
-                    a[i, j] = self.esp[(k-1)*6+i, j]
+                    a[i, j] = self.esp[k*6+i, j]
             
             # 应用转换矩阵
             if k < self.pnum:
@@ -1038,7 +1038,7 @@ class PileManager:
             se = np.zeros((6, 6), dtype=float)
             for i in range(6):
                 for j in range(6):
-                    se[i, j] = self.esp[(k-1)*6+i, j]
+                    se[i, j] = self.esp[k*6+i, j]
             
             # 计算桩顶部的内力
             pe = np.dot(se, ce)
@@ -1469,8 +1469,9 @@ if __name__ == "__main__":
     pile.read_dat(Path("tests/Test-1-1.dat"))
     
     np.set_printoptions(linewidth=200, precision=2, suppress=True)
-    # print(f"Pile stiffness matrix K:\n{pile.K}")
+    print(f"Pile stiffness matrix K:\n{pile.K}")
     
+    # 这里是bacd_pile.py的计算结果
     np.testing.assert_allclose(pile.K, [
         [ 3.75361337e+06,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 1.65098740e+07,  0.00000000e+00],
         [ 0.00000000e+00,  3.68517766e+06,  0.00000000e+00, -1.63086648e+07, 0.00000000e+00,  6.98491931e-10],
@@ -1479,6 +1480,7 @@ if __name__ == "__main__":
         [ 1.64737208e+07,  0.00000000e+00,  1.86264515e-09,  0.00000000e+00, 5.76996816e+08,  0.00000000e+00],
         [ 0.00000000e+00,  6.98491931e-10,  0.00000000e+00, -9.31322575e-10, 0.00000000e+00,  5.72172846e+08]
     ], rtol=1e-5, atol=1e-8)
+    
     
     # ino = 5
     # print(f"Pile {ino} stiffness matrix:\n{pile.K_pile(ino)}")
@@ -1492,13 +1494,13 @@ if __name__ == "__main__":
     pile_results = pile.eforce(force)
     # pile.print_worst_pile_force()
 
-    print(f"最不利单桩内力:{[f'{f:.1f}' for f in pile.worst_pile_force]}")
+    print(f"最不利单桩内力: ({', '.join([f'{f:.1f}' for f in pile.worst_pile_force])})")
 
-    pile.stiffness_report()
-    pile.pile_group_report()
-    pile.worst_pile_report()
+    # pile.stiffness_report()
+    # pile.pile_group_report()
+    # pile.worst_pile_report()
 
-    print(pile.worst_pile_force)
+    # print(pile.worst_pile_force)
 
     # for pile_id,result in pile_results.items():
     #     reaction = "NZ"

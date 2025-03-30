@@ -8,7 +8,7 @@ def use_cli():
 
 if __name__ == "__main__":
     # 在python脚本中使用
-    pile = PileManager()
+    pile = PileManager(debug=True)
     pile.read_dat(Path("./tests/Test-1-2.dat"))
     
     np.set_printoptions(linewidth=200, precision=2, suppress=True)
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     # 还可以查看刚度矩阵报告，通过参数output_file指定输出文件
     pile.stiffness_report()
     # 群桩基础报告
-    pile.pile_group_report()
+    # pile.pile_group_report()
     # 最不利单桩报告
     pile.worst_pile_report()
 

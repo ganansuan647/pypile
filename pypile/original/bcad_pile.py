@@ -476,37 +476,46 @@ this program, please do not hesitate to write to :
                     self.ksu[k] = int(vnew[ia])
             elif sig[ia] == "AGL=":
                 for k in nim:
-                    self.agl[k, jnew[ia]] = vnew[ia]
+                    # Fortran: AGL(NIM(IB),JNEW(IA))=VNEW(IA) -> Python: agl[k, jnew[ia]-1]
+                    self.agl[k, jnew[ia] - 1] = vnew[ia]
             elif sig[ia] == "NFR=":
                 for k in nim:
                     self.nfr[k] = int(vnew[ia])
             elif sig[ia] == "HFR=":
                 for k in nim:
-                    self.hfr[k, jnew[ia]] = vnew[ia]
+                    # Fortran: HFR(NIM(IB),JNEW(IA))=VNEW(IA) -> Python: hfr[k, jnew[ia]-1]
+                    self.hfr[k, jnew[ia] - 1] = vnew[ia]
             elif sig[ia] == "DOF=":
                 for k in nim:
-                    self.dof[k, jnew[ia]] = vnew[ia]
+                    # Fortran: DOF(NIM(IB),JNEW(IA))=VNEW(IA) -> Python: dof[k, jnew[ia]-1]
+                    self.dof[k, jnew[ia] - 1] = vnew[ia]
             elif sig[ia] == "NSF=":
                 for k in nim:
-                    self.nsf[k, jnew[ia]] = int(vnew[ia])
+                    # Fortran: NSF(NIM(IB),JNEW(IA))=VNEW(IA) -> Python: nsf[k, jnew[ia]-1]
+                    self.nsf[k, jnew[ia] - 1] = int(vnew[ia])
             elif sig[ia] == "NBL=":
                 for k in nim:
                     self.nbl[k] = int(vnew[ia])
             elif sig[ia] == "HBL=":
                 for k in nim:
-                    self.hbl[k, jnew[ia]] = vnew[ia]
+                    # Fortran: HBL(NIM(IB),JNEW(IA))=VNEW(IA) -> Python: hbl[k, jnew[ia]-1]
+                    self.hbl[k, jnew[ia] - 1] = vnew[ia]
             elif sig[ia] == "DOB=":
                 for k in nim:
-                    self.dob[k, jnew[ia]] = vnew[ia]
+                    # Fortran: DOB(NIM(IB),JNEW(IA))=VNEW(IA) -> Python: dob[k, jnew[ia]-1]
+                    self.dob[k, jnew[ia] - 1] = vnew[ia]
             elif sig[ia] == "PMT=":
                 for k in nim:
-                    self.pmt[k, jnew[ia]] = vnew[ia]
+                    # Fortran: PMT(NIM(IB),JNEW(IA))=VNEW(IA) -> Python: pmt[k, jnew[ia]-1]
+                    self.pmt[k, jnew[ia] - 1] = vnew[ia]
             elif sig[ia] == "PFI=":
                 for k in nim:
-                    self.pfi[k, jnew[ia]] = vnew[ia]
+                    # Fortran: PFI(NIM(IB),JNEW(IA))=VNEW(IA) -> Python: pfi[k, jnew[ia]-1]
+                    self.pfi[k, jnew[ia] - 1] = vnew[ia]
             elif sig[ia] == "NSG=":
                 for k in nim:
-                    self.nsg[k, jnew[ia]] = int(vnew[ia])
+                    # Fortran: NSG(NIM(IB),JNEW(IA))=VNEW(IA) -> Python: nsg[k, jnew[ia]-1]
+                    self.nsg[k, jnew[ia] - 1] = int(vnew[ia])
             elif sig[ia] == "PMB=":
                 for k in nim:
                     self.pmb[k] = vnew[ia]
@@ -1015,9 +1024,11 @@ this program, please do not hesitate to write to :
             self.cndtn(self.ksu[k], kx, ky, rzz[k], ke)
 
             # 保存桩的单元刚度
+            # Fortran (STFADD): ESP((K-1)*6+IA,IB)
+            # Python: k = 0..pnum+snum-1, index should be k*6+ia
             for i in range(6):
                 for j in range(6):
-                    self.esp[(k - 1) * 6 + i, j] = ke[i, j]
+                    self.esp[k * 6 + i, j] = ke[i, j]
 
     def rltmtx(self, nbl, bt1, bt2, ej, h, kbx, kby):
         """计算桩地下段的关系矩阵"""
@@ -1258,10 +1269,12 @@ this program, please do not hesitate to write to :
 
         for k in range(pnum + snum):
             # 获取桩的单元刚度
+            # Fortran (STFADD): ESP((K-1)*6+IA,IB)
+            # Python: k = 0..pnum+snum-1, index should be k*6+ia
             a = np.zeros((6, 6), dtype=float)
-            for i in range(6):
-                for j in range(6):
-                    a[i, j] = self.esp[(k - 1) * 6 + i, j]
+            for ia in range(6):
+                for ib in range(6):
+                    a[ia, ib] = self.esp[k * 6 + ia, ib]
 
             # 应用转换矩阵
             if k < pnum:
